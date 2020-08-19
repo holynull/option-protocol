@@ -1,9 +1,12 @@
-pragma solidity 0.6.0;
+pragma solidity >=0.6.0;
 
 import "./lib/CompoundOracleInterface.sol";
 import "./lib/IWETH.sol";
 import "./OptionsExchange.sol";
 import "./OptionsUtils.sol";
+import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20Detailed.sol";
@@ -24,7 +27,7 @@ contract OptionsContract is Ownable, ERC20 {
 
     struct Vault {
         uint256 collateral; // 抵押币种的数量
-        uint256 poTokensIssued; // 发行的期权合约的数量
+        uint256 tokensIssued; // 发行的期权合约的数量
         uint256 underlying; // 获得的underlying的数量
         bool owned;
     }
@@ -70,20 +73,6 @@ contract OptionsContract is Ownable, ERC20 {
 
     IWETH Weth;
 
-    /**
-     * @param _collaterald
-     * @param _collExp
-     * @param _underlying
-     * @param _underlyingExp
-     * @param _oTokenExchangeExp
-     * @param _strikePrice
-     * @param _strikeExp
-     * @param _strike
-     * @param _expiry
-     * @param _optionsExchange
-     * @param _oracleAddress
-     * @param _windowSize
-     */
     constructor(
         IERC20 _collateral,
         int32 _collExp,
@@ -96,8 +85,7 @@ contract OptionsContract is Ownable, ERC20 {
         OptionsExchange _optionsExchange,
         address _oracleAddress,
         uint256 _windowSize,
-        uint8 _decimals,
-        address _weth
+        uint8 _decimals
     ) public {
         require(block.timestamp < _expiry, "EXPIRED");
         require(_windowSize <= _expiry, "WINDOW_SIZE_BIGGER_THEN_EXPIRY");
@@ -110,7 +98,6 @@ contract OptionsContract is Ownable, ERC20 {
 
         underlying = _underlying;
         underlyingExp = _underlyingExp;
-        // tokenExchangeRate = Float(1, _oTokenExchangeExp);
 
         strikePrice = Float(_strikePrice, _strikeExp);
         strike = _strike;
@@ -120,7 +107,7 @@ contract OptionsContract is Ownable, ERC20 {
         optionsExchange = _optionsExchange;
         windowSize = _windowSize;
         decimals = _decimals;
-        Weth = IWETH(_weth);
+        Weth = IWETH(address(optionsExchange.UniswapRouter02.WETH()));
     }
 
     event VaultOpened(address payable vaultOwner);
@@ -136,7 +123,7 @@ contract OptionsContract is Ownable, ERC20 {
     );
     event IssuedOTokens(
         address issuedTo,
-        uint256 oTokensIssued,
+        uint256 tokensIssued,
         address payable vaultOwner
     );
     event Liquidate(
@@ -155,7 +142,7 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 amtUnderlyingRedeemed,
         address payable vaultOwner
     );
-    event BurnOTokens(address payable vaultOwner, uint256 oTokensBurned);
+    event BurnOTokens(address payable vaultOwner, uint256 tokensBurned);
     event RemoveCollateral(uint256 amtRemoved, address payable vaultOwner);
     event UpdateParameters(
         uint256 minCollateralizationRatioValue,
@@ -213,7 +200,7 @@ contract OptionsContract is Ownable, ERC20 {
     }
 
     function exercise(
-        uint256 oTokensToExercise,
+        uint256 tokensToExercise,
         address payable[] memory vaultsToExerciseFrom
     ) public payable {
         require(Weth.deposit{value: msg.value}(), "ETH_SWAP_WETH_FAILED"); // 将eth换成weth，防止重入，行权两次
@@ -221,30 +208,30 @@ contract OptionsContract is Ownable, ERC20 {
             address payable vaultOwner = vaultsToExerciseFrom[i];
             require(
                 hasVault(vaultOwner),
-                "Cannot exercise from a vault that doesn't exist"
+                "CANNOT_EXERCISE_FROM_A_VAULT_THAT_DOESN'T_EXIST"
             );
             Vault storage vault = vaults[vaultOwner];
-            if (oTokensToExercise == 0) {
+            if (tokensToExercise == 0) {
                 return;
-            } else if (vault.oTokensIssued >= oTokensToExercise) {
-                _exercise(oTokensToExercise, vaultOwner);
+            } else if (vault.tokensIssued >= tokensToExercise) {
+                _exercise(tokensToExercise, vaultOwner);
                 return;
             } else {
-                oTokensToExercise = oTokensToExercise.sub(vault.oTokensIssued);
-                _exercise(vault.oTokensIssued, vaultOwner);
+                tokensToExercise = tokensToExercise.sub(vault.tokensIssued);
+                _exercise(vault.tokensIssued, vaultOwner);
             }
         }
         require(
-            oTokensToExercise == 0,
-            "Specified vaults have insufficient collateral"
+            tokensToExercise == 0,
+            "SPECIFIED_VAULTS_HAVE_INSUFFICIENT_COLLATERAl"
         );
     }
 
     function removeUnderlying() public {
-        require(hasVault(msg.sender), "Vault does not exist");
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
         Vault storage vault = vaults[msg.sender];
 
-        require(vault.underlying > 0, "No underlying balance");
+        require(vault.underlying > 0, "NO_UNDERLYING_BALANCE");
 
         uint256 underlyingToTransfer = vault.underlying;
         vault.underlying = 0;
@@ -253,44 +240,12 @@ contract OptionsContract is Ownable, ERC20 {
         emit RemoveUnderlying(underlyingToTransfer, msg.sender);
     }
 
-    function issueOTokens(uint256 oTokensToIssue, address receiver)
-        public
-        notExpired
-    {
-        //check that we're properly collateralized to mint this number, then call _mint(address account, uint256 amount)
-        require(hasVault(msg.sender), "Vault does not exist");
-
-        Vault storage vault = vaults[msg.sender];
-
-        // checks that the vault is sufficiently collateralized
-        uint256 newOTokensBalance = vault.oTokensIssued.add(oTokensToIssue);
-        require(isSafe(vault.collateral, newOTokensBalance), "unsafe to mint");
-
-        // issue the oTokens
-        vault.oTokensIssued = newOTokensBalance;
-        _mint(receiver, oTokensToIssue);
-
-        emit IssuedOTokens(receiver, oTokensToIssue, msg.sender);
-        return;
-    }
-
     function getVault(address payable vaultOwner)
         public
         view
-        returns (
-            uint256,
-            uint256,
-            uint256,
-            bool
-        )
+        returns (Vault vault)
     {
         Vault storage vault = vaults[vaultOwner];
-        return (
-            vault.collateral,
-            vault.oTokensIssued,
-            vault.underlying,
-            vault.owned
-        );
     }
 
     /**
@@ -302,32 +257,32 @@ contract OptionsContract is Ownable, ERC20 {
     }
 
     function burnOTokens(uint256 amtToBurn) public notExpired {
-        require(hasVault(msg.sender), "Vault does not exist");
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         Vault storage vault = vaults[msg.sender];
 
-        vault.oTokensIssued = vault.oTokensIssued.sub(amtToBurn);
+        vault.tokensIssued = vault.tokensIssued.sub(amtToBurn);
         _burn(msg.sender, amtToBurn);
 
         emit BurnOTokens(msg.sender, amtToBurn);
     }
 
     function removeCollateral(uint256 amtToRemove) public notExpired {
-        require(amtToRemove > 0, "Cannot remove 0 collateral");
-        require(hasVault(msg.sender), "Vault does not exist");
+        require(amtToRemove > 0, "CANNOT_REMOVE_0_COLLATERAL");
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         Vault storage vault = vaults[msg.sender];
         require(
             amtToRemove <= getCollateral(msg.sender),
-            "Can't remove more collateral than owned"
+            "CAN'T_REMOVE_MORE_COLLATERAL_THAN_OWNED"
         );
 
         // check that vault will remain safe after removing collateral
         uint256 newCollateralBalance = vault.collateral.sub(amtToRemove);
 
         require(
-            isSafe(newCollateralBalance, vault.oTokensIssued),
-            "Vault is unsafe"
+            isSafe(newCollateralBalance, vault.tokensIssued),
+            "VAULT_IS_UNSAFE"
         );
 
         // remove the collateral
@@ -338,8 +293,8 @@ contract OptionsContract is Ownable, ERC20 {
     }
 
     function redeemVaultBalance() public {
-        require(hasExpired(), "Can't collect collateral until expiry");
-        require(hasVault(msg.sender), "Vault does not exist");
+        require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         // pay out owner their share
         Vault storage vault = vaults[msg.sender];
@@ -349,7 +304,7 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 underlyingToTransfer = vault.underlying;
 
         vault.collateral = 0;
-        vault.oTokensIssued = 0;
+        vault.tokensIssued = 0;
         vault.underlying = 0;
 
         transferCollateral(msg.sender, collateralToTransfer);
@@ -374,7 +329,7 @@ contract OptionsContract is Ownable, ERC20 {
      * @notice This function returns if an -30 <= exponent <= 30
      */
     function isWithinExponentRange(int32 val) internal pure returns (bool) {
-        return ((val <= 30) && (val >= -30));
+        re ((val <= 30) && (val >= -30));
     }
 
     /**
@@ -398,44 +353,44 @@ contract OptionsContract is Ownable, ERC20 {
         returns (uint256)
     {
         Vault storage vault = vaults[vaultOwner];
-        return vault.oTokensIssued;
+        return vault.tokensIssued;
     }
 
     function _exercise(
-        uint256 oTokensToExercise,
+        uint256 tokensToExercise,
         address payable vaultToExerciseFrom
     ) internal {
         // 1. before exercise window: revert
         require(
             isExerciseWindow(),
-            "Can't exercise outside of the exercise window"
+            "CAN'T_EXERCISE_OUTSIDE_OF_THE_EXERCISE_WINDOW"
         );
 
-        require(hasVault(vaultToExerciseFrom), "Vault does not exist");
+        require(hasVault(vaultToExerciseFrom), "VAULT_DOES_NOT_EXIST");
 
         Vault storage vault = vaults[vaultToExerciseFrom];
-        require(oTokensToExercise > 0, "Can't exercise 0 oTokens");
+        require(tokensToExercise > 0, "CAN'T_EXERCISE_0_OTOKENS");
         // Check correct amount of oTokens passed in)
         require(
-            oTokensToExercise <= vault.oTokensIssued,
-            "Can't exercise more oTokens than the owner has"
+            tokensToExercise <= vault.tokensIssued,
+            "CAN'T EXERCISE MORE OTOKENS THAN THE OWNER HAS"
         );
         // Ensure person calling has enough oTokens
         require(
-            balanceOf(msg.sender) >= oTokensToExercise,
-            "Not enough oTokens"
+            balanceOf(msg.sender) >= tokensToExercise,
+            "NOT ENOUGH OTOKENS"
         );
 
         // 1. Check sufficient underlying
         // 1.1 update underlying balances
-        uint256 amtUnderlyingToPay = oTokensToExercise; // 默认1一个token对应一个underlying
+        uint256 amtUnderlyingToPay = tokensToExercise; // 默认1一个token对应一个underlying
         vault.underlying = vault.underlying.add(amtUnderlyingToPay);
 
         // 2. Calculate Collateral to pay
         // 2.1 Payout enough collateral to get (strikePrice * oTokens) amount of collateral
         // 实际付给buyer的抵押物数量，要根据当前collateral和strike的价格计算，然后给付。即有可能给付的数量多于（strike相对于collateral涨价了）或者少于（strike相对于collateral降价了）当初的抵押量；
         uint256 amtCollateralToPay = calculateCollateralToPay(
-            oTokensToExercise,
+            tokensToExercise,
             Float(1, 0)
         );
 
@@ -449,17 +404,17 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 totalCollateralToPay = amtCollateralToPay; //.add(amtFee);
         require(
             totalCollateralToPay <= vault.collateral,
-            "Vault underwater, can't exercise"
+            "VAULT UNDERWATER, CAN'T EXERCISE"
         );
 
         // 3. Update collateral + oToken balances
         vault.collateral = vault.collateral.sub(totalCollateralToPay); // 扣除付出去的抵押物数量，多扣了amtCollateralToPay+amtFee；所以fee就留个oToken合约的所有者
-        vault.oTokensIssued = vault.oTokensIssued.sub(oTokensToExercise);
+        vault.tokensIssued = vault.tokensIssued.sub(tokensToExercise);
 
         // 4. Transfer in underlying, burn oTokens + pay out collateral
         // 4.1 Transfer in underlying
         if (isETH(underlying)) {
-            require(msg.value == amtUnderlyingToPay, "Incorrect msg.value");
+            require(msg.value == amtUnderlyingToPay, "INCORRECT MSG.VALUE");
         } else {
             require(
                 underlying.transferFrom(
@@ -467,11 +422,11 @@ contract OptionsContract is Ownable, ERC20 {
                     address(this),
                     amtUnderlyingToPay
                 ),
-                "Could not transfer in tokens"
+                "COULD NOT TRANSFER IN TOKENS"
             );
         }
         // 4.2 burn oTokens
-        _burn(msg.sender, oTokensToExercise);
+        _burn(msg.sender, tokensToExercise);
 
         // 4.3 Pay out collateral
         transferCollateral(msg.sender, amtCollateralToPay);
@@ -603,10 +558,11 @@ contract OptionsContract is Ownable, ERC20 {
      * you are calculating fees.
      * 公式：oTokenNum.mul(strikePrice).mul(strikeToEthPrice).div(collateralToEthPrice)
      */
-    function calculateCollateralToPay(
-        uint256 _oTokens,
-        Number memory proportion
-    ) internal view returns (uint256) {
+    function calculateCollateralToPay(uint256 _tokens, Number memory proportion)
+        internal
+        view
+        returns (uint256)
+    {
         // Get price from oracle
         uint256 collateralToEthPrice = 1;
         uint256 strikeToEthPrice = 1;
@@ -620,7 +576,7 @@ contract OptionsContract is Ownable, ERC20 {
 
         // calculate how much should be paid out
         // collateral的数量等于oToken的数量乘以strikePrice
-        uint256 amtCollateralToPayInEthNum = _oTokens
+        uint256 amtCollateralToPayInEthNum = _tokens
             .mul(strikePrice.value)
             .mul(proportion.value)
             .mul(strikeToEthPrice);
@@ -683,33 +639,76 @@ contract OptionsContract is Ownable, ERC20 {
         }
     }
 
-    function createCollateralOption(uint256 amtToCreate, address receiver)
-        external
-        payable
-    {
+    function createCollateralOption(
+        uint256 amtToCreate,
+        uint256 amtCollateral,
+        address receiver
+    ) external payable {
         openVault();
-        addCollateralOption(amtToCreate, receiver);
-    }
-
-    function addCollateralOption(uint256 amtToCreate, address receiver)
-        public
-        payable
-    {
-        addCollateral(msg.sender);
-        issueOTokens(amtToCreate, receiver);
-    }
-
-    function addCollateral(address payable vaultOwner)
-        public
-        payable
-        notExpired
-        returns (uint256)
-    {
-        require(hasVault(vaultOwner), "Vault does not exist");
+        require(hasVault(vaultOwner), "VAULT DOES NOT EXIST");
+        uint256 liquidityEth = 0;
+        uint256 collateralEth = 0;
         if (isETH(collateral)) {
-            require(Weth.deposit{value: msg.value}(), "ETH_SWAP_WETH_FAILED");
+            liquidityEth = msg.value.sub(amtCollateral);
+            collateralEth = amtCollateral;
+        } else {
+            liquidityEth = msg.value;
         }
+        require(liquidityEth > 0, "NO SUFFICIENT ETH TO ADD LIQUIDITY");
+        // 先转代币，免得付不起gas
+        require(
+            collateral.transferFrom(msg.sender, address(this), amtCollateral),
+            "COULD NOT TRANSFER IN COLLATERAL TOKENS"
+        );
+
+        if (isETH(collateral)) {
+            // 把抵押的eth存上，还有剩余的做流动性的eth
+            require(
+                Weth.deposit{value: collateralEth}(),
+                "ETH_SWAP_WETH_FAILED"
+            );
+        }
+
+        Vault storage vault = vaults[msg.sender];
+        vault.collateral = vault.collateral.add(amtCollateral);
         emit ETHCollateralAdded(vaultOwner, msg.value, msg.sender);
-        return _addCollateral(vaultOwner, msg.value);
+
+        //check that we're properly collateralized to mint this number, then call _mint(address account, uint256 amount)
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
+
+        Vault storage vault = vaults[msg.sender];
+
+        // checks that the vault is sufficiently collateralized
+        uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
+        require(isSafe(vault.collateral, newTokensBalance), "UNSAFE_TO_MINT");
+
+        // issue the oTokens
+        vault.tokensIssued = newTokensBalance;
+        _mint(receiver, tokensToIssue);
+
+        emit IssuedOTokens(receiver, tokensToIssue, msg.sender);
+        // IUniswapV2Pair pair = IUniswapV2Pair(
+        //     UniswapV2Library.pairFor(
+        //         optionExchange.UNISWAP_FACTORY,
+        //         address(this),
+        //         address(optionExchange.UniswapRouter02.WETH())
+        //     )
+        // );
+        require(
+            oToken.approve(
+                address(optionExchange.UniswapRouter02),
+                oTokensToSell
+            ),
+            "APPROVE FAILED"
+        );
+        (
+            uint256 amountToken,
+            uint256 amountETH,
+            uint256 liquidity
+        ) = optionsExchange.UniswapRouter02.addLiquidityETH{
+            value: liquidityEth
+        }(address(this), amtToCreate, 1, 1, msg.sender, block.timestamp);
+        if (liquidity > amountETH)
+            TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
     }
 }

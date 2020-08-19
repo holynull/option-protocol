@@ -1,7 +1,6 @@
 pragma solidity 0.6.0;
 
 import "./OptionsContract.sol";
-import "./oToken.sol";
 import "./OptionsUtils.sol";
 import "./lib/StringComparator.sol";
 import "@openzeppelin/contracts/ownership/Ownable.sol";
@@ -40,8 +39,7 @@ contract OptionsFactory is Ownable {
         string memory _strikeAsset,
         uint256 _expiry,
         uint256 _windowSize,
-        uint8 _decimals,
-        address _weth
+        uint8 _decimals
     ) public returns (address) {
         require(_expiry > block.timestamp, "WRONG_EXPIRY");
         require(_windowSize <= _expiry, "INVALID_WINDOWSIZE");
@@ -67,8 +65,7 @@ contract OptionsFactory is Ownable {
             optionsExchange,
             oracleAddress,
             _windowSize,
-            _decimals,
-            _weth
+            _decimals
         );
 
         optionsContracts.push(address(optionsContract));
@@ -86,7 +83,7 @@ contract OptionsFactory is Ownable {
 
     function addAsset(string memory _asset, address _addr) public onlyOwner {
         require(!supportsAsset(_asset), "ASSET_ALREADY_ADDED");
-        require(_addr != address(0), "Cannot set to address(0)");
+        require(_addr != address(0), "CANNOT SET TO ADDRESS(0)");
 
         tokens[_asset] = IERC20(_addr);
         emit AssetAdded(_asset, _addr);
