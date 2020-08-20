@@ -1,9 +1,8 @@
-pragma solidity 0.6.0;
+pragma solidity >=0.6.0;
 
 import "./OptionsContract.sol";
-import "./OptionsUtils.sol";
 import "./lib/StringComparator.sol";
-import "@openzeppelin/contracts/ownership/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract OptionsFactory is Ownable {
@@ -14,19 +13,18 @@ contract OptionsFactory is Ownable {
     address[] public optionsContracts;
 
     // The contract which interfaces with the exchange
-    OptionsExchange public optionsExchange;
     address public oracleAddress;
+
+    address uniswapRouter02;
 
     event OptionsContractCreated(address addr);
     event AssetAdded(string indexed asset, address indexed addr);
     event AssetChanged(string indexed asset, address indexed addr);
     event AssetDeleted(string indexed asset);
 
-    constructor(OptionsExchange _optionsExchangeAddr, address _oracleAddress)
-        public
-    {
-        optionsExchange = OptionsExchange(_optionsExchangeAddr);
+    constructor(address _oracleAddress, address _uniswapRouter02) public {
         oracleAddress = _oracleAddress;
+        uniswapRouter02 = _uniswapRouter02;
     }
 
     function createOptionsContract(
@@ -38,8 +36,7 @@ contract OptionsFactory is Ownable {
         int32 _strikeExp,
         string memory _strikeAsset,
         uint256 _expiry,
-        uint256 _windowSize,
-        uint8 _decimals
+        uint256 _windowSize
     ) public returns (address) {
         require(_expiry > block.timestamp, "WRONG_EXPIRY");
         require(_windowSize <= _expiry, "INVALID_WINDOWSIZE");
@@ -54,6 +51,8 @@ contract OptionsFactory is Ownable {
         require(supportsAsset(_strikeAsset), "STRIKE_ASSET_TYPE_NOT_SUPPORTED");
 
         OptionsContract optionsContract = new OptionsContract(
+            "",
+            "",
             tokens[_collateralType],
             _collateralExp,
             tokens[_underlyingType],
@@ -62,10 +61,9 @@ contract OptionsFactory is Ownable {
             _strikeExp,
             tokens[_strikeAsset],
             _expiry,
-            optionsExchange,
             oracleAddress,
             _windowSize,
-            _decimals
+            uniswapRouter02
         );
 
         optionsContracts.push(address(optionsContract));

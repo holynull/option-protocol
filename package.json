@@ -1,7 +1,7 @@
 {
-    "name": "zpl-demo",
+    "name": "option-protocol",
     "version": "1.0.0",
-    "description": "Open Zeppelin Project",
+    "description": "Ploutoz's option protocol",
     "main": "index.js",
     "scripts": {
         "t:test": "truffle test",

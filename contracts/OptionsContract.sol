@@ -2,21 +2,12 @@ pragma solidity >=0.6.0;
 
 import "./lib/CompoundOracleInterface.sol";
 import "./lib/IWETH.sol";
-import "./OptionsExchange.sol";
-import "./OptionsUtils.sol";
-import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
-import "@uniswap/v2-periphery/contracts/libraries/UniswapV2Library.sol";
+import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20Detailed.sol";
-import "@openzeppelin/contracts/ownership/Ownable.sol";
-import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-/**
- * @title Opyn's Options Contract
- * @author Opyn
- */
 contract OptionsContract is Ownable, ERC20 {
     using SafeMath for uint256;
 
@@ -31,8 +22,6 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 underlying; // 获得的underlying的数量
         bool owned;
     }
-
-    OptionsExchange public optionsExchange;
 
     mapping(address => Vault) internal vaults;
 
@@ -64,16 +53,13 @@ contract OptionsContract is Ownable, ERC20 {
 
     CompoundOracleInterface public COMPOUND_ORACLE;
 
-    string public name;
-
-    string public symbol;
-
-    // 本合约数量的小数位数
-    uint8 public decimals;
-
     IWETH Weth;
 
+    IUniswapV2Router02 public uniswapRouter02;
+
     constructor(
+        string memory _name,
+        string memory _symbol,
         IERC20 _collateral,
         int32 _collExp,
         IERC20 _underlying,
@@ -82,11 +68,10 @@ contract OptionsContract is Ownable, ERC20 {
         int32 _strikeExp,
         IERC20 _strike,
         uint256 _expiry,
-        OptionsExchange _optionsExchange,
         address _oracleAddress,
         uint256 _windowSize,
-        uint8 _decimals
-    ) public {
+        address _uniswapRouter2
+    ) public ERC20(_name, _symbol) {
         require(block.timestamp < _expiry, "EXPIRED");
         require(_windowSize <= _expiry, "WINDOW_SIZE_BIGGER_THEN_EXPIRY");
         require(isWithinExponentRange(_collExp), "COLLEXP_WRONG");
@@ -104,10 +89,8 @@ contract OptionsContract is Ownable, ERC20 {
 
         expiry = _expiry;
         COMPOUND_ORACLE = CompoundOracleInterface(_oracleAddress);
-        optionsExchange = _optionsExchange;
         windowSize = _windowSize;
-        decimals = _decimals;
-        Weth = IWETH(address(optionsExchange.UniswapRouter02.WETH()));
+        uniswapRouter02 = IUniswapV2Router02(_uniswapRouter2);
     }
 
     event VaultOpened(address payable vaultOwner);
@@ -116,21 +99,13 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 amount,
         address payer
     );
-    event ERC20CollateralAdded(
-        address payable vaultOwner,
-        uint256 amount,
-        address payer
-    );
+    
     event IssuedOTokens(
         address issuedTo,
         uint256 tokensIssued,
         address payable vaultOwner
     );
-    event Liquidate(
-        uint256 amtCollateralToPay,
-        address payable vaultOwner,
-        address payable liquidator
-    );
+   
     event Exercise(
         uint256 amtUnderlyingToPay,
         uint256 amtCollateralToPay,
@@ -144,12 +119,7 @@ contract OptionsContract is Ownable, ERC20 {
     );
     event BurnOTokens(address payable vaultOwner, uint256 tokensBurned);
     event RemoveCollateral(uint256 amtRemoved, address payable vaultOwner);
-    event UpdateParameters(
-        uint256 minCollateralizationRatioValue,
-        int32 minCollateralizationRatioExp,
-        address owner
-    );
-    event TransferFee(address payable to, uint256 fees);
+    
     event RemoveUnderlying(
         uint256 amountUnderlying,
         address payable vaultOwner
@@ -203,7 +173,7 @@ contract OptionsContract is Ownable, ERC20 {
         uint256 tokensToExercise,
         address payable[] memory vaultsToExerciseFrom
     ) public payable {
-        require(Weth.deposit{value: msg.value}(), "ETH_SWAP_WETH_FAILED"); // 将eth换成weth，防止重入，行权两次
+        Weth.deposit{value: msg.value}(); // 将eth换成weth，防止重入，行权两次
         for (uint256 i = 0; i < vaultsToExerciseFrom.length; i++) {
             address payable vaultOwner = vaultsToExerciseFrom[i];
             require(
@@ -238,14 +208,6 @@ contract OptionsContract is Ownable, ERC20 {
 
         transferUnderlying(msg.sender, underlyingToTransfer);
         emit RemoveUnderlying(underlyingToTransfer, msg.sender);
-    }
-
-    function getVault(address payable vaultOwner)
-        public
-        view
-        returns (Vault vault)
-    {
-        Vault storage vault = vaults[vaultOwner];
     }
 
     /**
@@ -328,8 +290,8 @@ contract OptionsContract is Ownable, ERC20 {
     /**
      * @notice This function returns if an -30 <= exponent <= 30
      */
-    function isWithinExponentRange(int32 val) internal pure returns (bool) {
-        re ((val <= 30) && (val >= -30));
+    function isWithinExponentRange(int32 val) internal pure returns (bool re) {
+        re = ((val <= 30) && (val >= -30));
     }
 
     /**
@@ -490,10 +452,6 @@ contract OptionsContract is Ownable, ERC20 {
         return stillSafe;
     }
 
-    /**
-     * This function returns the maximum amount of oTokens that can safely be issued against the specified amount of collateral.
-     * @param collateralAmt The amount of collateral against which oTokens will be issued.
-     */
     function maxOTokensIssuable(uint256 collateralAmt)
         public
         view
@@ -502,16 +460,7 @@ contract OptionsContract is Ownable, ERC20 {
         return calculateOTokens(collateralAmt, minCollateralizationRatio);
     }
 
-    /**
-     * @notice This function is used to calculate the amount of tokens that can be issued.
-     * @dev The amount of oTokens is determined by:
-     * oTokensIssued  <= collateralAmt * collateralToStrikePrice / (proportion * strikePrice)
-     * @param collateralAmt The amount of collateral
-     * @param proportion The proportion of the collateral to pay out. If 100% of collateral
-     * should be paid out, pass in Number(1, 0). The proportion might be less than 100% if
-     * you are calculating fees.
-     */
-    function calculateOTokens(uint256 collateralAmt, Number memory proportion)
+    function calculateOTokens(uint256 collateralAmt, Float memory proportion)
         internal
         view
         returns (uint256)
@@ -548,17 +497,7 @@ contract OptionsContract is Ownable, ERC20 {
         return numOptions;
     }
 
-    /**
-     * @notice This function calculates the amount of collateral to be paid out.
-     * @dev The amount of collateral to paid out is determined by:
-     * (proportion * strikePrice * strikeToCollateralPrice * oTokens) amount of collateral.
-     * @param _oTokens The number of oTokens.
-     * @param proportion The proportion of the collateral to pay out. If 100% of collateral
-     * should be paid out, pass in Number(1, 0). The proportion might be less than 100% if
-     * you are calculating fees.
-     * 公式：oTokenNum.mul(strikePrice).mul(strikeToEthPrice).div(collateralToEthPrice)
-     */
-    function calculateCollateralToPay(uint256 _tokens, Number memory proportion)
+    function calculateCollateralToPay(uint256 _tokens, Float memory proportion)
         internal
         view
         returns (uint256)
@@ -599,38 +538,24 @@ contract OptionsContract is Ownable, ERC20 {
         return amtCollateralToPay;
     }
 
-    /**
-     * @notice This function transfers `amt` collateral to `_addr`
-     * @param _addr The address to send the collateral to
-     * @param _amt The amount of the collateral to pay out.
-     */
     function transferCollateral(address payable _addr, uint256 _amt) internal {
         if (isETH(collateral)) {
-            require(Weth.withdraw(_amt), "WETH_SWAP_ETH_FAILED");
+            Weth.withdraw(_amt);
             _addr.transfer(_amt);
         } else {
             collateral.transfer(_addr, _amt);
         }
     }
 
-    /**
-     * @notice This function transfers `amt` underlying to `_addr`
-     * @param _addr The address to send the underlying to
-     * @param _amt The amount of the underlying to pay out.
-     */
     function transferUnderlying(address payable _addr, uint256 _amt) internal {
         if (isETH(underlying)) {
-            require(Weth.withdraw(_amt), "WETH_SWAP_ETH_FAILED");
+            Weth.withdraw(_amt);
             _addr.transfer(_amt);
         } else {
             underlying.transfer(_addr, _amt);
         }
     }
 
-    /**
-     * @notice This function gets the price ETH (wei) to asset price.
-     * @param asset The address of the asset to get the price of
-     */
     function getPrice(address asset) internal view returns (uint256) {
         if (asset == address(0)) {
             return (10**18);
@@ -639,13 +564,12 @@ contract OptionsContract is Ownable, ERC20 {
         }
     }
 
-    function createCollateralOption(
-        uint256 amtToCreate,
-        uint256 amtCollateral,
-        address receiver
-    ) external payable {
+    function createCollateralOption(uint256 amtToCreate, uint256 amtCollateral)
+        external
+        payable
+    {
         openVault();
-        require(hasVault(vaultOwner), "VAULT DOES NOT EXIST");
+        require(hasVault(msg.sender), "VAULT DOES NOT EXIST");
         uint256 liquidityEth = 0;
         uint256 collateralEth = 0;
         if (isETH(collateral)) {
@@ -663,20 +587,15 @@ contract OptionsContract is Ownable, ERC20 {
 
         if (isETH(collateral)) {
             // 把抵押的eth存上，还有剩余的做流动性的eth
-            require(
-                Weth.deposit{value: collateralEth}(),
-                "ETH_SWAP_WETH_FAILED"
-            );
+            Weth.deposit{value: collateralEth}();
         }
 
         Vault storage vault = vaults[msg.sender];
         vault.collateral = vault.collateral.add(amtCollateral);
-        emit ETHCollateralAdded(vaultOwner, msg.value, msg.sender);
+        emit ETHCollateralAdded(msg.sender, msg.value, msg.sender);
 
         //check that we're properly collateralized to mint this number, then call _mint(address account, uint256 amount)
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
-
-        Vault storage vault = vaults[msg.sender];
 
         // checks that the vault is sufficiently collateralized
         uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
@@ -684,28 +603,24 @@ contract OptionsContract is Ownable, ERC20 {
 
         // issue the oTokens
         vault.tokensIssued = newTokensBalance;
-        _mint(receiver, tokensToIssue);
+        _mint(msg.sender, amtToCreate);
 
-        emit IssuedOTokens(receiver, tokensToIssue, msg.sender);
-        // IUniswapV2Pair pair = IUniswapV2Pair(
-        //     UniswapV2Library.pairFor(
-        //         optionExchange.UNISWAP_FACTORY,
-        //         address(this),
-        //         address(optionExchange.UniswapRouter02.WETH())
-        //     )
+        emit IssuedOTokens(msg.sender, amtToCreate, msg.sender);
+        
+        // IERC20 oToken = IERC20(address(this));
+        // todo: 这可能不对
+        // require(
+        //     oToken.approve(
+        //         address(optionsExchange.uniswapRouter02),
+        //         amtToCreate
+        //     ),
+        //     "APPROVE FAILED"
         // );
-        require(
-            oToken.approve(
-                address(optionExchange.UniswapRouter02),
-                oTokensToSell
-            ),
-            "APPROVE FAILED"
-        );
         (
-            uint256 amountToken,
+            ,
             uint256 amountETH,
             uint256 liquidity
-        ) = optionsExchange.UniswapRouter02.addLiquidityETH{
+        ) = uniswapRouter02.addLiquidityETH{
             value: liquidityEth
         }(address(this), amtToCreate, 1, 1, msg.sender, block.timestamp);
         if (liquidity > amountETH)
