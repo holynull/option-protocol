@@ -106,3 +106,5 @@ dist
 build/
 
 .openzeppelin/.session
+
+secret.js

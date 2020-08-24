@@ -12,7 +12,7 @@
     ]
   },
   "include": [
-    "test/**/*.ts"
+    "test/**/*.ts", "test/ploutozOracle.test.js"
   ],
   "exclude": [
     "node_modules"

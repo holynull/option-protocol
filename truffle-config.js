@@ -24,6 +24,8 @@ require('ts-node/register');
 //
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
+const { projectId, mnemonic } = require('./secret.js');
+const HDWalletProvider = require('@truffle/hdwallet-provider');;
 
 module.exports = {
     /**
@@ -43,10 +45,38 @@ module.exports = {
         // tab if you use this network and you must also set the `host`, `port` and `network_id`
         // options below to some value.
         //
-        development: {
-            host: "127.0.0.1",     // Localhost (default: none)
-            port: 8545,            // Standard Ethereum port (default: none)
-            network_id: "*",       // Any network (default: none)
+        // development: {
+        //     host: "127.0.0.1",     // Localhost (default: none)
+        //     port: 8545,            // Standard Ethereum port (default: none)
+        //     network_id: "*",       // Any network (default: none)
+        // },
+        rinkeby: {
+            provider: () => new HDWalletProvider(mnemonic, "https://rinkeby.infura.io/v3/" + projectId),
+            network_id: 4,       // Rinkeby's id
+            gas: 10000000,        // Rinkeby has a lower block limit than mainnet
+            confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+            timeoutBlocks: 2000,  // # of blocks before a deployment times out  (minimum/default: 50)
+            skipDryRun: true,    // Skip dry run before migrations? (default: false for public nets )
+            gasPrice: 7000000000  // 7 gwei (in wei) (default: 100 gwei)
+        },
+        rinkeby_skipMigrations: {
+            provider: () => new HDWalletProvider(mnemonic, "https://rinkeby.infura.io/v3/" + projectId),
+            network_id: 4,       // Rinkeby's id
+            gas: 10000000,        // Rinkeby has a lower block limit than mainnet
+            confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+            timeoutBlocks: 2000,  // # of blocks before a deployment times out  (minimum/default: 50)
+            skipDryRun: true,    // Skip dry run before migrations? (default: false for public nets )
+            gasPrice: 7000000000  // 7 gwei (in wei) (default: 100 gwei)
+        },
+        mainnet: {
+            provider: () => new HDWalletProvider(mnemonic, "https://mainnet.infura.io/v3/" + projectId),
+            network_id: 1,       // Mainnet id
+            chain_id: 1,
+            gas: 8000000,        // Ropsten has a lower block limit than mainnet
+            confirmations: 2,    // # of confs to wait between deployments. (default: 0)
+            timeoutBlocks: 2000,  // # of blocks before a deployment times out  (minimum/default: 50)
+            skipDryRun: true,    // Skip dry run before migrations? (default: false for public nets )
+            gasPrice: 7000000000  // 7 gwei (in wei) (default: 100 gwei)
         },
         // Another network with more advanced options...
         // advanced: {
@@ -85,13 +115,13 @@ module.exports = {
         solc: {
             version: "0.6.6",    // Fetch exact version from solc-bin (default: truffle's version)
             // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-            //   settings: {          // See the solidity docs for advice about optimization and evmVersion
-            //    optimizer: {
-            //      enabled: false,
-            //      runs: 2000
-            //    },
-            // //    evmVersion: "byzantium"
-            //   }
+            settings: {          // See the solidity docs for advice about optimization and evmVersion
+                optimizer: {
+                    enabled: true,
+                    runs: 200
+                },
+                //    evmVersion: "byzantium"
+            }
         },
     },
 };

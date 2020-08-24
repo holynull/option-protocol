@@ -7,7 +7,7 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./lib/UniswapV2Library.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 
-contract OptionsExchange {
+contract PloutozOptExchange {
     uint256 constant LARGE_BLOCK_SIZE = 1651753129000;
     uint256 constant LARGE_APPROVAL_NUMBER = 10**30;
 

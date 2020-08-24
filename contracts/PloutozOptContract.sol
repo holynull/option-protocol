@@ -8,7 +8,7 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract OptionsContract is Ownable, ERC20 {
+contract PloutozOptContract is Ownable, ERC20 {
     using SafeMath for uint256;
 
     struct Float {

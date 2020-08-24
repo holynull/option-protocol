@@ -1,11 +1,11 @@
 pragma solidity >=0.6.0;
 
-import "./OptionsContract.sol";
+import "./PloutozOptContract.sol";
 import "./lib/StringComparator.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract OptionsFactory is Ownable {
+contract PloutozOptFactory is Ownable {
     using StringComparator for string;
 
     // keys saved in front-end -- look at the docs if needed
@@ -50,7 +50,7 @@ contract OptionsFactory is Ownable {
         );
         require(supportsAsset(_strikeAsset), "STRIKE_ASSET_TYPE_NOT_SUPPORTED");
 
-        OptionsContract optionsContract = new OptionsContract(
+        PloutozOptContract optionsContract = new PloutozOptContract(
             "",
             "",
             tokens[_collateralType],
