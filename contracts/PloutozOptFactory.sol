@@ -48,7 +48,7 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
         string memory _strikeAsset,
         uint256 _expiry,
         uint256 _windowSize
-    ) public returns (address) {
+    ) public returns (address optionContractAddr) {
         require(_expiry > block.timestamp, "WRONG_EXPIRY");
         require(_windowSize <= _expiry, "INVALID_WINDOWSIZE");
         require(
@@ -86,7 +86,7 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
         // Set the owner for the options contract.
         optionsContract.transferOwnership(owner());
 
-        return address(optionsContract);
+        optionContractAddr = address(optionsContract);
     }
 
     function getNumberOfOptionsContracts() public view returns (uint256) {
