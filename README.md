@@ -1,1 +1,14 @@
-# option-protocol
+# Option Protocol
+
+# Rikeby addresses
+
+```
+Ploutoz Oracle: 0x9796F90D18F289381f3DBaa6123cdccD2F8AB70d
+Ploutoz Factory: 0x1335380779CE4d246C862D6D66CB6A8551ab3a2c
+Ploutoz Exchange: 0xda7CA0C409c4E56894E2A9485d4165c9B7c1c6D3
+Uniswap Factory: 0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f
+Uniswap Router01: 0xf164fC0Ec4E93095b804a4795bBe1e041497b92a
+Uniswap Router02: 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D
+COMP Oracle: 0x332b6e69f21acdba5fb3e8dac56ff81878527e06
+
+```

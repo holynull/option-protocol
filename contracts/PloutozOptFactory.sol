@@ -2,10 +2,10 @@ pragma solidity >=0.6.0;
 
 import "./PloutozOptContract.sol";
 import "./lib/StringComparator.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
 
-contract PloutozOptFactory is Ownable {
+contract PloutozOptFactory is OwnableUpgradeSafe {
     using StringComparator for string;
 
     // keys saved in front-end -- look at the docs if needed
@@ -22,12 +22,23 @@ contract PloutozOptFactory is Ownable {
     event AssetChanged(string indexed asset, address indexed addr);
     event AssetDeleted(string indexed asset);
 
-    constructor(address _oracleAddress, address _uniswapRouter02) public {
+    // constructor(address _oracleAddress, address _uniswapRouter02) public {
+    //     oracleAddress = _oracleAddress;
+    //     uniswapRouter02 = _uniswapRouter02;
+    // }
+
+    function initialize(address _oracleAddress, address _uniswapRouter02)
+        public
+        initializer
+    {
         oracleAddress = _oracleAddress;
         uniswapRouter02 = _uniswapRouter02;
+        __Ownable_init();
     }
 
     function createOptionsContract(
+        string memory _symbol,
+        string memory _name,
         string memory _collateralType,
         int32 _collateralExp,
         string memory _underlyingType,
@@ -51,8 +62,11 @@ contract PloutozOptFactory is Ownable {
         require(supportsAsset(_strikeAsset), "STRIKE_ASSET_TYPE_NOT_SUPPORTED");
 
         PloutozOptContract optionsContract = new PloutozOptContract(
-            "",
-            "",
+            _symbol,
+            _name
+        );
+
+        optionsContract.setOption(
             tokens[_collateralType],
             _collateralExp,
             tokens[_underlyingType],

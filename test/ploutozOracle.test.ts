@@ -19,7 +19,7 @@ contract('PloutozOracleContract', accounts => {
     const cUSDCAddress = '0x5B281A6DdA0B271e91ae35DE655Ad301C976edb1';
     const cWBTCAddress = '0x0014F450B8Ae7708593F4A46F8fa6E5D50620F96';
     const cZRXAddress = '0x52201ff1720134bBbBB2f6BC97Bf3715490EC19B';
-    const ploutozOracleAddress = '0x27F545300F7b93c1c0184979762622Db043b0805';
+    const ploutozOracleAddress = '0x9796F90D18F289381f3DBaa6123cdccD2F8AB70d';
 
     // Mainnet Addresses
     // const cBATAddress = '0x6C8c6b02E7b2BE14d4fA6022Dfd6d75921D90E4E';

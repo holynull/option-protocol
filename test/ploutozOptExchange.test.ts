@@ -10,8 +10,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
     const firstOwnerAddress = accounts[1];
 
     // Rinkeby Addresses
-    const exchangeAddress = '0x4241b47f7Bd37E1b661dF94562424C960eAc58B3';
-    const oracleAddress = '0x27F545300F7b93c1c0184979762622Db043b0805';
+    const exchangeAddress = '0x3f7B10985Cb9F17BA2ecD5BF49A1Bf0292898297';
+    const oracleAddress = '0x3988384227b347a824f4F42f9aE54c57436AC09A';
     const uniswapFactoryAddr = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
     const uniswapRouter01Addr = '0xf164fC0Ec4E93095b804a4795bBe1e041497b92a';
     const uniswapRouter02Addr = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';

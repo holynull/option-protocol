@@ -1,14 +1,30 @@
 pragma solidity >=0.6.0;
 
-import "./lib/CompoundOracleInterface.sol";
 import "./lib/IWETH.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 
-contract PloutozOptContract is Ownable, ERC20 {
+interface CompoundOracleInterface {
+    // returns asset:eth -- to get USDC:eth, have to do 10**24/result,
+
+    /**
+     * @notice retrieves price of an asset
+     * @dev function to get price for an asset
+     * @param asset Asset for which to get the price
+     * @return uint mantissa of asset price (scaled by 1e18) or zero if unset or contract paused
+     */
+    function getPrice(address asset) external view returns (uint256);
+
+    function getUnderlyingPrice(IERC20 cToken) external view returns (uint256);
+    // function getPrice(address asset) public view returns (uint) {
+    //     return 527557000000000;
+    // }
+}
+
+contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     using SafeMath for uint256;
 
     struct Float {
@@ -57,9 +73,12 @@ contract PloutozOptContract is Ownable, ERC20 {
 
     IUniswapV2Router02 public uniswapRouter02;
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
+    constructor(string memory _name, string memory _symbol) public {
+        __ERC20_init(_name, _symbol);
+        __Ownable_init();
+    }
+
+    function setOption(
         IERC20 _collateral,
         int32 _collExp,
         IERC20 _underlying,
@@ -71,7 +90,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         address _oracleAddress,
         uint256 _windowSize,
         address _uniswapRouter2
-    ) public ERC20(_name, _symbol) {
+    ) public onlyOwner {
         require(block.timestamp < _expiry, "EXPIRED");
         require(_windowSize <= _expiry, "WINDOW_SIZE_BIGGER_THEN_EXPIRY");
         require(isWithinExponentRange(_collExp), "COLLEXP_WRONG");
@@ -99,13 +118,13 @@ contract PloutozOptContract is Ownable, ERC20 {
         uint256 amount,
         address payer
     );
-    
+
     event IssuedOTokens(
         address issuedTo,
         uint256 tokensIssued,
         address payable vaultOwner
     );
-   
+
     event Exercise(
         uint256 amtUnderlyingToPay,
         uint256 amtCollateralToPay,
@@ -119,7 +138,7 @@ contract PloutozOptContract is Ownable, ERC20 {
     );
     event BurnOTokens(address payable vaultOwner, uint256 tokensBurned);
     event RemoveCollateral(uint256 amtRemoved, address payable vaultOwner);
-    
+
     event RemoveUnderlying(
         uint256 amountUnderlying,
         address payable vaultOwner
@@ -606,7 +625,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         _mint(msg.sender, amtToCreate);
 
         emit IssuedOTokens(msg.sender, amtToCreate, msg.sender);
-        
+
         // IERC20 oToken = IERC20(address(this));
         // todo: 这可能不对
         // require(
@@ -616,13 +635,15 @@ contract PloutozOptContract is Ownable, ERC20 {
         //     ),
         //     "APPROVE FAILED"
         // );
-        (
-            ,
-            uint256 amountETH,
-            uint256 liquidity
-        ) = uniswapRouter02.addLiquidityETH{
-            value: liquidityEth
-        }(address(this), amtToCreate, 1, 1, msg.sender, block.timestamp);
+        (, uint256 amountETH, uint256 liquidity) = uniswapRouter02
+            .addLiquidityETH{value: liquidityEth}(
+            address(this),
+            amtToCreate,
+            1,
+            1,
+            msg.sender,
+            block.timestamp
+        );
         if (liquidity > amountETH)
             TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
     }

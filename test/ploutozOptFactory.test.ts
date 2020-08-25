@@ -13,8 +13,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
     const firstOwnerAddress = accounts[1];
 
     // Rinkeby Addresses
-    const factoryAddress = '0xBbe383201027b5406bf7D0C9aa97103f0a1dEc68';
-    const oracleAddress = '0x27F545300F7b93c1c0184979762622Db043b0805';
+    const factoryAddress = '0x778dBa6D41C22D7BD07Fb381558B5F7228Eb82de';
+    const oracleAddress = '0x3988384227b347a824f4F42f9aE54c57436AC09A';
     const uniswapRouter02Addr = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
     const exchangeAddress = '0x4241b47f7Bd37E1b661dF94562424C960eAc58B3';
 
@@ -186,6 +186,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
 
             await expectRevert(
                 factory.createOptionsContract(
+                    '测试啊啊',
+                    '测试啊啊',
                     'ETH',
                     -'18',
                     'ETH',
@@ -206,6 +208,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
 
             await expectRevert(
                 factory.createOptionsContract(
+                    '测试啊啊',
+                    '测试啊啊',
                     'ETH',
                     -'18',
                     'ETH',
@@ -223,6 +227,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
 
         it('should create a new options contract correctly', async () => {
             const result = await factory.createOptionsContract(
+                '测试啊啊',
+                '测试啊啊',
                 'ETH',
                 -'18',
                 'ETH',
@@ -251,6 +257,8 @@ contract('Ploutoz Option Contract Factory', accounts => {
         });
         it('anyone else should be able to create a second options contract correctly', async () => {
             const result = await factory.createOptionsContract(
+                '测试啊啊',
+                '测试啊啊',
                 'ETH',
                 -'18',
                 'ETH',

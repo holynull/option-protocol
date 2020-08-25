@@ -1,13 +1,14 @@
 pragma solidity >=0.6.0;
 
-import "./lib/CompoundOracleInterface.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router01.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./lib/UniswapV2Library.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 
-contract PloutozOptExchange {
+contract PloutozOptExchange is OwnableUpgradeSafe {
     uint256 constant LARGE_BLOCK_SIZE = 1651753129000;
     uint256 constant LARGE_APPROVAL_NUMBER = 10**30;
 
@@ -16,15 +17,27 @@ contract PloutozOptExchange {
     IUniswapV2Router01 public uniswapRouter01;
     IUniswapV2Router02 public uniswapRouter02;
 
-    constructor(
+    // constructor(
+    //     address _uniswapFactory,
+    //     address _uniswapRouter01,
+    //     address _uniswapRouter02
+    // ) public {
+    //     UNISWAP_FACTORY = _uniswapFactory;
+    //     uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
+    //     uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
+    //     WETH = uniswapRouter02.WETH();
+    // }
+
+    function initialize(
         address _uniswapFactory,
         address _uniswapRouter01,
         address _uniswapRouter02
-    ) public {
+    ) public initializer {
         UNISWAP_FACTORY = _uniswapFactory;
         uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
         uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
         WETH = uniswapRouter02.WETH();
+        __Ownable_init();
     }
 
     /*** Events ***/
