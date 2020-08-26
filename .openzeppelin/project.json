@@ -2,8 +2,8 @@
   "manifestVersion": "2.2",
   "contracts": {
     "PloutozOracle": "PloutozOracle",
-    "PloutozOptFactory": "PloutozOptFactory",
-    "PloutozOptExchange": "PloutozOptExchange"
+    "PloutozOptExchange": "PloutozOptExchange",
+    "PloutozOptFactory": "PloutozOptFactory"
   },
   "dependencies": {},
   "name": "option-protocol",

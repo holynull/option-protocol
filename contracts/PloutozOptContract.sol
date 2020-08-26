@@ -45,6 +45,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
     Float public minCollateralizationRatio = Float(1, 0);
 
+    // call 情况下，实际是价格的倒数
     Float public strikePrice;
 
     //  1 token对underlying的比例
@@ -188,6 +189,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         return (block.timestamp >= expiry);
     }
 
+    // 单位是wei
     function exercise(
         uint256 tokensToExercise,
         address payable[] memory vaultsToExerciseFrom
@@ -364,14 +366,21 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
         // 1. Check sufficient underlying
         // 1.1 update underlying balances
-        uint256 amtUnderlyingToPay = tokensToExercise; // 默认1一个token对应一个underlying
+        require(
+            (0 - underlyingExp) <= decimals(),
+            "underlying的exponent的绝对值必须小于本合约的decimal"
+        );
+        uint256 amtUnderlyingToPayExp = uint256(decimals() * 1 - (0 - underlyingExp));
+        uint256 amtUnderlyingToPay = tokensToExercise.mul(
+            10**amtUnderlyingToPayExp
+        ); // 默认1一个token对应一个underlying
         vault.underlying = vault.underlying.add(amtUnderlyingToPay);
 
         // 2. Calculate Collateral to pay
         // 2.1 Payout enough collateral to get (strikePrice * oTokens) amount of collateral
         // 实际付给buyer的抵押物数量，要根据当前collateral和strike的价格计算，然后给付。即有可能给付的数量多于（strike相对于collateral涨价了）或者少于（strike相对于collateral降价了）当初的抵押量；
-        uint256 amtCollateralToPay = calculateCollateralToPay(
-            tokensToExercise,
+        Float memory amtCollateralToPay = calculateCollateralToPay(
+            Float(tokensToExercise, 0 - decimals()),
             Float(1, 0)
         );
 
@@ -382,7 +391,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         // );
         // totalFee = totalFee.add(amtFee);
 
-        uint256 totalCollateralToPay = amtCollateralToPay; //.add(amtFee);
+        uint256 totalCollateralToPay = amtCollateralToPay.value; //.add(amtFee);
         require(
             totalCollateralToPay <= vault.collateral,
             "VAULT UNDERWATER, CAN'T EXERCISE"
@@ -410,11 +419,11 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         _burn(msg.sender, tokensToExercise);
 
         // 4.3 Pay out collateral
-        transferCollateral(msg.sender, amtCollateralToPay);
+        transferCollateral(msg.sender, amtCollateralToPay.value);
 
         emit Exercise(
             amtUnderlyingToPay,
-            amtCollateralToPay,
+            amtCollateralToPay.value,
             msg.sender,
             vaultToExerciseFrom
         );
@@ -516,11 +525,10 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         return numOptions;
     }
 
-    function calculateCollateralToPay(uint256 _tokens, Float memory proportion)
-        internal
-        view
-        returns (uint256)
-    {
+    function calculateCollateralToPay(
+        Float memory _tokens,
+        Float memory proportion
+    ) internal view returns (Float memory result) {
         // Get price from oracle
         uint256 collateralToEthPrice = 1;
         uint256 strikeToEthPrice = 1;
@@ -532,29 +540,19 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
             strikeToEthPrice = getPrice(address(strike));
         }
 
-        // calculate how much should be paid out
         // collateral的数量等于oToken的数量乘以strikePrice
         uint256 amtCollateralToPayInEthNum = _tokens
+            .value
             .mul(strikePrice.value)
             .mul(proportion.value)
             .mul(strikeToEthPrice);
         int32 amtCollateralToPayExp = strikePrice.exponent +
             proportion.exponent -
             collateralExp;
-        uint256 amtCollateralToPay = 0;
-        if (amtCollateralToPayExp > 0) {
-            uint32 exp = uint32(amtCollateralToPayExp);
-            amtCollateralToPay = amtCollateralToPayInEthNum.mul(10**exp).div(
-                collateralToEthPrice
-            );
-        } else {
-            uint32 exp = uint32(-1 * amtCollateralToPayExp);
-            amtCollateralToPay = (amtCollateralToPayInEthNum.div(10**exp)).div(
-                collateralToEthPrice
-            );
-        }
-
-        return amtCollateralToPay;
+        uint256 amtCollateralToPay = amtCollateralToPayInEthNum.div(
+            collateralToEthPrice
+        );
+        result = Float(amtCollateralToPay, amtCollateralToPayExp);
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
@@ -583,9 +581,11 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         }
     }
 
-    function createCollateralOption(uint256 amtToCreate, uint256 amtCollateral)
+    // 实际数量amtCollateral*10**collateralExp
+    function createCollateralOption(uint256 amtCollateral)
         external
         payable
+        returns (uint256 amtCreateValue, int32 amtCreateExponent)
     {
         openVault();
         require(hasVault(msg.sender), "VAULT DOES NOT EXIST");
@@ -598,15 +598,20 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
             liquidityEth = msg.value;
         }
         require(liquidityEth > 0, "NO SUFFICIENT ETH TO ADD LIQUIDITY");
-        // 先转代币，免得付不起gas
-        require(
-            collateral.transferFrom(msg.sender, address(this), amtCollateral),
-            "COULD NOT TRANSFER IN COLLATERAL TOKENS"
-        );
 
         if (isETH(collateral)) {
             // 把抵押的eth存上，还有剩余的做流动性的eth
             Weth.deposit{value: collateralEth}();
+        } else {
+            // 先转代币，免得付不起gas
+            require(
+                collateral.transferFrom(
+                    msg.sender,
+                    address(this),
+                    amtCollateral
+                ),
+                "COULD NOT TRANSFER IN COLLATERAL TOKENS"
+            );
         }
 
         Vault storage vault = vaults[msg.sender];
@@ -617,13 +622,24 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         // checks that the vault is sufficiently collateralized
+        int32 amtToCreateExp = collateralExp -
+            strikePrice.exponent -
+            decimals();
+        uint256 amtToCreate;
+        if (amtToCreateExp > 0) {
+            amtToCreate = amtCollateral.div(strikePrice.value);
+        } else {
+            amtToCreate = amtCollateral.div(strikePrice.value);
+        }
+
+        amtCreateValue = amtToCreate;
+        amtCreateExponent = amtToCreateExp;
         uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
         require(isSafe(vault.collateral, newTokensBalance), "UNSAFE_TO_MINT");
 
         // issue the oTokens
         vault.tokensIssued = newTokensBalance;
         _mint(msg.sender, amtToCreate);
-
         emit IssuedOTokens(msg.sender, amtToCreate, msg.sender);
 
         // IERC20 oToken = IERC20(address(this));
