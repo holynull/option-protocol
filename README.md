@@ -29,7 +29,7 @@ trikeExp: int32, _strikeAsset: string, _expiry: uint256, _windowSize: uint256)
 ? _underlyingType: string: USDC
 ? _underlyingExp: int32: -6
 ? _strikePrice: uint256: 250
-? _strikeExp: int32: -11
+? _strikeExp: int32: -6
 ? _strikeAsset: string: ETH
 ? _expiry: uint256: 1598690040000
 ? _windowSize: uint256: 1598344440000

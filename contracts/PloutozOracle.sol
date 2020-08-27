@@ -132,4 +132,14 @@ contract PloutozOracle is OwnableUpgradeSafe {
         uint256 exponent = maxExponent.sub(decimalsOfAsset);
         return EthToAssetPrice.div(10**exponent);
     }
+
+    event Received(address, uint256);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    fallback() external payable {
+        // to get ether from uniswap exchanges
+    }
 }

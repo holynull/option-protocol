@@ -370,7 +370,9 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
             (0 - underlyingExp) <= decimals(),
             "underlying的exponent的绝对值必须小于本合约的decimal"
         );
-        uint256 amtUnderlyingToPayExp = uint256(decimals() * 1 - (0 - underlyingExp));
+        uint256 amtUnderlyingToPayExp = uint256(
+            decimals() * 1 - (0 - underlyingExp)
+        );
         uint256 amtUnderlyingToPay = tokensToExercise.mul(
             10**amtUnderlyingToPayExp
         ); // 默认1一个token对应一个underlying
@@ -662,5 +664,15 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         );
         if (liquidity > amountETH)
             TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
+    }
+
+    event Received(address, uint256);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    fallback() external payable {
+        // to get ether from uniswap exchanges
     }
 }

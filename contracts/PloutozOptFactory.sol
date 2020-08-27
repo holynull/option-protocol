@@ -129,4 +129,14 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
 
         return tokens[_asset] != IERC20(0);
     }
+
+    event Received(address, uint256);
+
+    receive() external payable {
+        emit Received(msg.sender, msg.value);
+    }
+
+    fallback() external payable {
+        // to get ether from uniswap exchanges
+    }
 }
