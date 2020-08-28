@@ -1,0 +1,462 @@
+{
+  "contracts": {
+    "PloutozOracle": {
+      "address": "0x250Ded8D6F10bc2ED78987ad1fa25587EFC133C7",
+      "constructorCode": "608060405234801561001057600080fd5b50611049806100206000396000f3fe",
+      "bodyBytecodeHash": "b312d73b8e921be8a442529c771967ac2037c0e7796a50a3cd713318fec34197",
+      "localBytecodeHash": "64d94609b02073f6156028a54ca1b6205e701a3ccc9ac65dcb2c7add81dffa35",
+      "deployedBytecodeHash": "64d94609b02073f6156028a54ca1b6205e701a3ccc9ac65dcb2c7add81dffa35",
+      "types": {
+        "t_bool": {
+          "id": "t_bool",
+          "kind": "elementary",
+          "label": "bool"
+        },
+        "t_uint256": {
+          "id": "t_uint256",
+          "kind": "elementary",
+          "label": "uint256"
+        },
+        "t_array:50<t_uint256>": {
+          "id": "t_array:50<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "50",
+          "kind": "array",
+          "label": "uint256[50]"
+        },
+        "t_address": {
+          "id": "t_address",
+          "kind": "elementary",
+          "label": "address"
+        },
+        "t_array:49<t_uint256>": {
+          "id": "t_array:49<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "49",
+          "kind": "array",
+          "label": "uint256[49]"
+        },
+        "t_mapping<t_bool>": {
+          "id": "t_mapping<t_bool>",
+          "valueType": "t_bool",
+          "label": "mapping(key => bool)",
+          "kind": "mapping"
+        },
+        "t_mapping<t_address>": {
+          "id": "t_mapping<t_address>",
+          "valueType": "t_address",
+          "label": "mapping(key => address)",
+          "kind": "mapping"
+        }
+      },
+      "storage": [
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initialized",
+          "astId": 49,
+          "type": "t_bool",
+          "src": "757:24:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initializing",
+          "astId": 51,
+          "type": "t_bool",
+          "src": "876:25:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "______gap",
+          "astId": 116,
+          "type": "t_array:50<t_uint256>",
+          "src": "1982:29:1"
+        },
+        {
+          "contract": "ContextUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol",
+          "label": "__gap",
+          "astId": 43,
+          "type": "t_array:50<t_uint256>",
+          "src": "1277:25:0"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "_owner",
+          "astId": 128,
+          "type": "t_address",
+          "src": "651:22:2"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "__gap",
+          "astId": 246,
+          "type": "t_array:49<t_uint256>",
+          "src": "2434:25:2"
+        },
+        {
+          "contract": "PloutozOracle",
+          "path": "contracts/PloutozOracle.sol",
+          "label": "isCToken",
+          "astId": 4559,
+          "type": "t_mapping<t_bool>",
+          "src": "1104:33:14"
+        },
+        {
+          "contract": "PloutozOracle",
+          "path": "contracts/PloutozOracle.sol",
+          "label": "assetToCTokens",
+          "astId": 4563,
+          "type": "t_mapping<t_address>",
+          "src": "1143:42:14"
+        },
+        {
+          "contract": "PloutozOracle",
+          "path": "contracts/PloutozOracle.sol",
+          "label": "cETH",
+          "astId": 4565,
+          "type": "t_address",
+          "src": "1191:12:14"
+        },
+        {
+          "contract": "PloutozOracle",
+          "path": "contracts/PloutozOracle.sol",
+          "label": "PriceOracle",
+          "astId": 4567,
+          "type": "t_address",
+          "src": "1250:42:14"
+        }
+      ],
+      "warnings": {
+        "hasConstructor": false,
+        "hasSelfDestruct": false,
+        "hasDelegateCall": false,
+        "hasInitialValuesInDeclarations": false,
+        "uninitializedBaseContracts": [],
+        "storageUncheckedVars": [],
+        "storageDiff": []
+      }
+    },
+    "PloutozOptFactory": {
+      "address": "0xbD5782103F1eFA8A4B504edf1ffA0AAe5B2CD85B",
+      "constructorCode": "608060405234801561001057600080fd5b50615c90806100206000396000f3fe",
+      "bodyBytecodeHash": "a6c11cae95f09762809bbe041c492e3a4a1746f7470729736104c0c0181653d9",
+      "localBytecodeHash": "70420418cb74c19872c1a2c341ec1c8af284fb8f0de9efc8dd638b4c4bc940c3",
+      "deployedBytecodeHash": "1c9b17d8f7acf1a4641ce5b0ca51fded10cf323fdd12b43ce8636d196634d68c",
+      "types": {
+        "t_bool": {
+          "id": "t_bool",
+          "kind": "elementary",
+          "label": "bool"
+        },
+        "t_uint256": {
+          "id": "t_uint256",
+          "kind": "elementary",
+          "label": "uint256"
+        },
+        "t_array:50<t_uint256>": {
+          "id": "t_array:50<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "50",
+          "kind": "array",
+          "label": "uint256[50]"
+        },
+        "t_address": {
+          "id": "t_address",
+          "kind": "elementary",
+          "label": "address"
+        },
+        "t_array:49<t_uint256>": {
+          "id": "t_array:49<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "49",
+          "kind": "array",
+          "label": "uint256[49]"
+        },
+        "t_mapping<t_address>": {
+          "id": "t_mapping<t_address>",
+          "valueType": "t_address",
+          "label": "mapping(key => address)",
+          "kind": "mapping"
+        },
+        "t_array:dyn<t_address>": {
+          "id": "t_array:dyn<t_address>",
+          "valueType": "t_address",
+          "length": "dyn",
+          "kind": "array",
+          "label": "address[]"
+        }
+      },
+      "storage": [
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initialized",
+          "astId": 49,
+          "type": "t_bool",
+          "src": "757:24:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initializing",
+          "astId": 51,
+          "type": "t_bool",
+          "src": "876:25:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "______gap",
+          "astId": 116,
+          "type": "t_array:50<t_uint256>",
+          "src": "1982:29:1"
+        },
+        {
+          "contract": "ContextUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol",
+          "label": "__gap",
+          "astId": 43,
+          "type": "t_array:50<t_uint256>",
+          "src": "1277:25:0"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "_owner",
+          "astId": 128,
+          "type": "t_address",
+          "src": "651:22:2"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "__gap",
+          "astId": 246,
+          "type": "t_array:49<t_uint256>",
+          "src": "2434:25:2"
+        },
+        {
+          "contract": "PloutozOptFactory",
+          "path": "contracts/PloutozOptFactory.sol",
+          "label": "tokens",
+          "astId": 4184,
+          "type": "t_mapping<t_address>",
+          "src": "419:39:13"
+        },
+        {
+          "contract": "PloutozOptFactory",
+          "path": "contracts/PloutozOptFactory.sol",
+          "label": "optionsContracts",
+          "astId": 4187,
+          "type": "t_array:dyn<t_address>",
+          "src": "464:33:13"
+        },
+        {
+          "contract": "PloutozOptFactory",
+          "path": "contracts/PloutozOptFactory.sol",
+          "label": "oracleAddress",
+          "astId": 4189,
+          "type": "t_address",
+          "src": "559:28:13"
+        },
+        {
+          "contract": "PloutozOptFactory",
+          "path": "contracts/PloutozOptFactory.sol",
+          "label": "uniswapRouter02",
+          "astId": 4191,
+          "type": "t_address",
+          "src": "594:23:13"
+        }
+      ],
+      "warnings": {
+        "hasConstructor": false,
+        "hasSelfDestruct": false,
+        "hasDelegateCall": false,
+        "hasInitialValuesInDeclarations": false,
+        "uninitializedBaseContracts": []
+      }
+    },
+    "PloutozOptExchange": {
+      "address": "0xB0ED5ea9315846001383Dc128B60cdCdC2E468AC",
+      "constructorCode": "608060405234801561001057600080fd5b50611bfc806100206000396000f3fe",
+      "bodyBytecodeHash": "89d1a309ce8c7979680c4af7ed7be0dee8bbea4db4dbb535528f6bf273a9055c",
+      "localBytecodeHash": "6dba8954adb802ea29d00959430b68d5ddffd13d7badabaa8b6e7133e9d5cd42",
+      "deployedBytecodeHash": "6dba8954adb802ea29d00959430b68d5ddffd13d7badabaa8b6e7133e9d5cd42",
+      "types": {
+        "t_bool": {
+          "id": "t_bool",
+          "kind": "elementary",
+          "label": "bool"
+        },
+        "t_uint256": {
+          "id": "t_uint256",
+          "kind": "elementary",
+          "label": "uint256"
+        },
+        "t_array:50<t_uint256>": {
+          "id": "t_array:50<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "50",
+          "kind": "array",
+          "label": "uint256[50]"
+        },
+        "t_address": {
+          "id": "t_address",
+          "kind": "elementary",
+          "label": "address"
+        },
+        "t_array:49<t_uint256>": {
+          "id": "t_array:49<t_uint256>",
+          "valueType": "t_uint256",
+          "length": "49",
+          "kind": "array",
+          "label": "uint256[49]"
+        }
+      },
+      "storage": [
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initialized",
+          "astId": 49,
+          "type": "t_bool",
+          "src": "757:24:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "initializing",
+          "astId": 51,
+          "type": "t_bool",
+          "src": "876:25:1"
+        },
+        {
+          "contract": "Initializable",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/Initializable.sol",
+          "label": "______gap",
+          "astId": 116,
+          "type": "t_array:50<t_uint256>",
+          "src": "1982:29:1"
+        },
+        {
+          "contract": "ContextUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/GSN/Context.sol",
+          "label": "__gap",
+          "astId": 43,
+          "type": "t_array:50<t_uint256>",
+          "src": "1277:25:0"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "_owner",
+          "astId": 128,
+          "type": "t_address",
+          "src": "651:22:2"
+        },
+        {
+          "contract": "OwnableUpgradeSafe",
+          "path": "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol",
+          "label": "__gap",
+          "astId": 246,
+          "type": "t_array:49<t_uint256>",
+          "src": "2434:25:2"
+        },
+        {
+          "contract": "PloutozOptExchange",
+          "path": "contracts/PloutozOptExchange.sol",
+          "label": "UNISWAP_FACTORY",
+          "astId": 3719,
+          "type": "t_address",
+          "src": "674:30:12"
+        },
+        {
+          "contract": "PloutozOptExchange",
+          "path": "contracts/PloutozOptExchange.sol",
+          "label": "WETH",
+          "astId": 3721,
+          "type": "t_address",
+          "src": "710:20:12"
+        },
+        {
+          "contract": "PloutozOptExchange",
+          "path": "contracts/PloutozOptExchange.sol",
+          "label": "uniswapRouter01",
+          "astId": 3723,
+          "type": "t_address",
+          "src": "736:41:12"
+        },
+        {
+          "contract": "PloutozOptExchange",
+          "path": "contracts/PloutozOptExchange.sol",
+          "label": "uniswapRouter02",
+          "astId": 3725,
+          "type": "t_address",
+          "src": "783:41:12"
+        }
+      ],
+      "warnings": {
+        "hasConstructor": false,
+        "hasSelfDestruct": false,
+        "hasDelegateCall": false,
+        "hasInitialValuesInDeclarations": false,
+        "uninitializedBaseContracts": []
+      }
+    }
+  },
+  "solidityLibs": {
+    "StringComparator": {
+      "address": "0xe9319AB7F1C7b865934De8570B48f2c4002Ab57c",
+      "constructorCode": "610298610026600b82828239805160001a60731461001957fe5b30600052607381538281f3fe",
+      "bodyBytecodeHash": "b8d0a5b79938c6c8966aad0571a064ea8d755c8e364af9ed27dec4bfdc6e7191",
+      "localBytecodeHash": "e88c18add973204442b05c1859aeb6d0168e3365e8dcb07af9be926e9e0c1f28",
+      "deployedBytecodeHash": "e88c18add973204442b05c1859aeb6d0168e3365e8dcb07af9be926e9e0c1f28"
+    }
+  },
+  "proxies": {
+    "option-protocol/PloutozOracle": [
+      {
+        "address": "0x7223f100FEfcAb25fdb5a52f7939dA488BF691c2",
+        "version": "1.0.0",
+        "implementation": "0x9c00954A8A58f5DDa8C011D6233093763F13C8Da",
+        "admin": "0x27F545300F7b93c1c0184979762622Db043b0805",
+        "kind": "Upgradeable"
+      },
+      {
+        "address": "0x6e4c9A6843C4F14A2f6995746648CDec64B9B32d",
+        "version": "1.0.0",
+        "implementation": "0x250Ded8D6F10bc2ED78987ad1fa25587EFC133C7",
+        "admin": "0x27F545300F7b93c1c0184979762622Db043b0805",
+        "kind": "Upgradeable"
+      }
+    ],
+    "option-protocol/PloutozOptFactory": [
+      {
+        "address": "0x842d9Ab0ced6F2e8E965D153547577c78d364d40",
+        "version": "1.0.0",
+        "implementation": "0xbD5782103F1eFA8A4B504edf1ffA0AAe5B2CD85B",
+        "admin": "0x27F545300F7b93c1c0184979762622Db043b0805",
+        "kind": "Upgradeable"
+      }
+    ],
+    "option-protocol/PloutozOptExchange": [
+      {
+        "address": "0x394DcaB0c8EC342764990b3Bbe262746cFFfEe83",
+        "version": "1.0.0",
+        "implementation": "0xB0ED5ea9315846001383Dc128B60cdCdC2E468AC",
+        "admin": "0x27F545300F7b93c1c0184979762622Db043b0805",
+        "kind": "Upgradeable"
+      }
+    ]
+  },
+  "manifestVersion": "2.2",
+  "version": "1.0.0",
+  "proxyAdmin": {
+    "address": "0x27F545300F7b93c1c0184979762622Db043b0805"
+  }
+}

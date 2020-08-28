@@ -589,14 +589,20 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         payable
         returns (uint256 amtCreateValue, int32 amtCreateExponent)
     {
-        openVault();
-        require(hasVault(msg.sender), "VAULT DOES NOT EXIST");
+        if (!hasVault(msg.sender)) {
+            openVault();
+        }
         uint256 liquidityEth = 0;
         uint256 collateralEth = 0;
         if (isETH(collateral)) {
+            require(
+                msg.value > amtCollateral,
+                "eth amount must bigger then collateral amount."
+            );
             liquidityEth = msg.value.sub(amtCollateral);
             collateralEth = amtCollateral;
         } else {
+            require(msg.value > 0, "must send some eth for uniswap liquidity.");
             liquidityEth = msg.value;
         }
         require(liquidityEth > 0, "NO SUFFICIENT ETH TO ADD LIQUIDITY");
