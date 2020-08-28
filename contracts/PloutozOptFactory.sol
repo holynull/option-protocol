@@ -4,12 +4,13 @@ import "./PloutozOptContract.sol";
 import "./lib/StringComparator.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
 
 contract PloutozOptFactory is OwnableUpgradeSafe {
     using StringComparator for string;
 
     // keys saved in front-end -- look at the docs if needed
-    mapping(string => IERC20) public tokens;
+    mapping(string => ERC20UpgradeSafe) public tokens;
     address[] public optionsContracts;
 
     // The contract which interfaces with the exchange
@@ -39,13 +40,11 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
     function createOptionsContract(
         string memory _symbol,
         string memory _name,
-        string memory _collateralType,
-        int32 _collateralExp,
         string memory _underlyingType,
-        int32 _underlyingExp,
-        uint256 _strikePrice,
-        int32 _strikeExp,
         string memory _strikeAsset,
+        string memory _collateralType,
+        uint256 _strikePrice,
+        uint8 _strikePriceDecimals,
         uint256 _expiry,
         uint256 _windowSize
     ) public returns (address optionContractAddr) {
@@ -68,15 +67,13 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
 
         optionsContract.setOption(
             tokens[_collateralType],
-            _collateralExp,
             tokens[_underlyingType],
-            _underlyingExp,
-            _strikePrice,
-            _strikeExp,
             tokens[_strikeAsset],
+            _strikePrice,
+            _strikePriceDecimals,
             _expiry,
-            oracleAddress,
             _windowSize,
+            oracleAddress,
             uniswapRouter02
         );
 
@@ -97,28 +94,28 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
         require(!supportsAsset(_asset), "ASSET_ALREADY_ADDED");
         require(_addr != address(0), "CANNOT SET TO ADDRESS(0)");
 
-        tokens[_asset] = IERC20(_addr);
+        tokens[_asset] = ERC20UpgradeSafe(_addr);
         emit AssetAdded(_asset, _addr);
     }
 
     function changeAsset(string memory _asset, address _addr) public onlyOwner {
         require(
-            tokens[_asset] != IERC20(0),
+            tokens[_asset] != ERC20UpgradeSafe(0),
             "TRYING_TO_REPLACE_A_NON-EXISTENT_ASSET"
         );
         require(_addr != address(0), "CANNOT_SET_TO_ADDRESS(0)");
 
-        tokens[_asset] = IERC20(_addr);
+        tokens[_asset] = ERC20UpgradeSafe(_addr);
         emit AssetChanged(_asset, _addr);
     }
 
     function deleteAsset(string memory _asset) public onlyOwner {
         require(
-            tokens[_asset] != IERC20(0),
+            tokens[_asset] != ERC20UpgradeSafe(0),
             "TRYING_TO_DELETE_A_NON-EXISTENT_ASSET"
         );
 
-        tokens[_asset] = IERC20(0);
+        tokens[_asset] = ERC20UpgradeSafe(0);
         emit AssetDeleted(_asset);
     }
 
@@ -127,7 +124,7 @@ contract PloutozOptFactory is OwnableUpgradeSafe {
             return true;
         }
 
-        return tokens[_asset] != IERC20(0);
+        return tokens[_asset] != ERC20UpgradeSafe(0);
     }
 
     event Received(address, uint256);

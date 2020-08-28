@@ -27,11 +27,6 @@ interface CompoundOracleInterface {
 contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     using SafeMath for uint256;
 
-    struct Float {
-        uint256 value;
-        int32 exponent;
-    }
-
     struct Vault {
         uint256 collateral; // 抵押币种的数量
         uint256 tokensIssued; // 发行的期权合约的数量
@@ -43,30 +38,28 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
     address payable[] internal vaultOwners;
 
-    Float public minCollateralizationRatio = Float(1, 0);
+    uint256 public minCollateralizationRatio = uint256(10**18); // wei
 
     // call 情况下，实际是价格的倒数
-    Float public strikePrice;
+    uint256 public strikePrice; // strikePirce.mul(10**(0-strikePriceDecimals))
+
+    uint8 public strikePriceDecimals;
 
     //  1 token对underlying的比例
     uint8 public tokenExchangeRate = 1;
 
-    uint256 internal windowSize;
+    uint256 public windowSize;
 
     uint256 public expiry;
 
-    int32 public collateralExp = -18;
-
-    int32 public underlyingExp = -18;
-
     // 抵押币种
-    IERC20 public collateral;
+    ERC20UpgradeSafe public collateral;
 
     // 标的币种
-    IERC20 public underlying;
+    ERC20UpgradeSafe public underlying;
 
     // 计价币种
-    IERC20 public strike;
+    ERC20UpgradeSafe public strike;
 
     CompoundOracleInterface public COMPOUND_ORACLE;
 
@@ -80,31 +73,34 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     }
 
     function setOption(
-        IERC20 _collateral,
-        int32 _collExp,
-        IERC20 _underlying,
-        int32 _underlyingExp,
+        ERC20UpgradeSafe _collateral,
+        ERC20UpgradeSafe _underlying,
+        ERC20UpgradeSafe _strike,
         uint256 _strikePrice,
-        int32 _strikeExp,
-        IERC20 _strike,
+        uint8 _strikePriceDecimals,
         uint256 _expiry,
-        address _oracleAddress,
         uint256 _windowSize,
+        address _oracleAddress,
         address _uniswapRouter2
     ) public onlyOwner {
         require(block.timestamp < _expiry, "EXPIRED");
         require(_windowSize <= _expiry, "WINDOW_SIZE_BIGGER_THEN_EXPIRY");
-        require(isWithinExponentRange(_collExp), "COLLEXP_WRONG");
-        require(isWithinExponentRange(_underlyingExp), "UNDERLYINGEXP_WRONG");
-        require(isWithinExponentRange(_strikeExp), "STRIKEEXP_WRONG");
+        require(
+            _collateral.decimals() <= 18 && _collateral.decimals() > 0,
+            "抵押币种不是正经erc20币，小数位数大于18"
+        );
+        require(
+            _underlying.decimals() <= 18 && _underlying.decimals() > 0,
+            "标的币种不是正经erc20币，小数位数大于18"
+        );
+        require(
+            _strikePriceDecimals <= 18 && _strikePriceDecimals > 0,
+            "价格小数位数不能大于18"
+        );
 
         collateral = _collateral;
-        collateralExp = _collExp;
-
         underlying = _underlying;
-        underlyingExp = _underlyingExp;
-
-        strikePrice = Float(_strikePrice, _strikeExp);
+        strikePrice = _strikePrice;
         strike = _strike;
 
         expiry = _expiry;
@@ -189,12 +185,12 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         return (block.timestamp >= expiry);
     }
 
-    // 单位是wei
     function exercise(
-        uint256 tokensToExercise,
+        uint256 tokensToExercise, // wei
         address payable[] memory vaultsToExerciseFrom
     ) public payable {
-        Weth.deposit{value: msg.value}(); // 将eth换成weth，防止重入，行权两次
+        // 将eth换成weth，防止重入，行权两次
+        Weth.deposit{value: msg.value}();
         for (uint256 i = 0; i < vaultsToExerciseFrom.length; i++) {
             address payable vaultOwner = vaultsToExerciseFrom[i];
             require(
@@ -205,10 +201,10 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
             if (tokensToExercise == 0) {
                 return;
             } else if (vault.tokensIssued >= tokensToExercise) {
-                _exercise(tokensToExercise, vaultOwner);
+                _exercise(tokensToExercise, vaultOwner); // tokensToExercise wei
                 return;
             } else {
-                tokensToExercise = tokensToExercise.sub(vault.tokensIssued);
+                tokensToExercise = tokensToExercise.sub(vault.tokensIssued); // wei
                 _exercise(vault.tokensIssued, vaultOwner);
             }
         }
@@ -340,7 +336,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     }
 
     function _exercise(
-        uint256 tokensToExercise,
+        uint256 tokensToExercise, // wei
         address payable vaultToExerciseFrom
     ) internal {
         // 1. before exercise window: revert
@@ -366,24 +362,21 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
         // 1. Check sufficient underlying
         // 1.1 update underlying balances
-        require(
-            (0 - underlyingExp) <= decimals(),
-            "underlying的exponent的绝对值必须小于本合约的decimal"
-        );
-        uint256 amtUnderlyingToPayExp = uint256(
-            decimals() * 1 - (0 - underlyingExp)
-        );
-        uint256 amtUnderlyingToPay = tokensToExercise.mul(
-            10**amtUnderlyingToPayExp
-        ); // 默认1一个token对应一个underlying
+        uint256 amtUnderlyingToPay; // 默认1一个token对应一个underlying
+        if (isETH(underlying)) {
+            amtUnderlyingToPay = tokensToExercise;
+        } else {
+            uint256 factor = uint256(10)**(underlying.decimals() - uint256(18));
+            amtUnderlyingToPay = tokensToExercise.mul(factor);
+        }
         vault.underlying = vault.underlying.add(amtUnderlyingToPay);
 
         // 2. Calculate Collateral to pay
         // 2.1 Payout enough collateral to get (strikePrice * oTokens) amount of collateral
         // 实际付给buyer的抵押物数量，要根据当前collateral和strike的价格计算，然后给付。即有可能给付的数量多于（strike相对于collateral涨价了）或者少于（strike相对于collateral降价了）当初的抵押量；
-        Float memory amtCollateralToPay = calculateCollateralToPay(
-            Float(tokensToExercise, 0 - decimals()),
-            Float(1, 0)
+        uint256 amtCollateralToPay = calculateCollateralToPay(
+            tokensToExercise,
+            10**18
         );
 
         // 2.2 Take a small fee on every exercise
@@ -393,7 +386,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         // );
         // totalFee = totalFee.add(amtFee);
 
-        uint256 totalCollateralToPay = amtCollateralToPay.value; //.add(amtFee);
+        uint256 totalCollateralToPay = amtCollateralToPay; //.add(amtFee);
         require(
             totalCollateralToPay <= vault.collateral,
             "VAULT UNDERWATER, CAN'T EXERCISE"
@@ -421,11 +414,11 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         _burn(msg.sender, tokensToExercise);
 
         // 4.3 Pay out collateral
-        transferCollateral(msg.sender, amtCollateralToPay.value);
+        transferCollateral(msg.sender, amtCollateralToPay);
 
         emit Exercise(
             amtUnderlyingToPay,
-            amtCollateralToPay.value,
+            amtCollateralToPay,
             msg.sender,
             vaultToExerciseFrom
         );
@@ -442,6 +435,7 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         return vault.collateral;
     }
 
+    // tokensIssued wei
     function isSafe(uint256 collateralAmt, uint256 tokensIssued)
         internal
         view
@@ -458,28 +452,16 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
         // check `oTokensIssued * minCollateralizationRatio * strikePrice <= collAmt * collateralToStrikePrice` 流通期权合约的相对抵押物的价值，不能小于vault中抵押物的 1/16
         uint256 leftSideVal = tokensIssued
-            .mul(minCollateralizationRatio.value)
-            .mul(strikePrice.value);
-        int32 leftSideExp = minCollateralizationRatio.exponent +
-            strikePrice.exponent;
+            .mul(minCollateralizationRatio)
+            .mul(strikePrice)
+            .mul(uint256(10)**(uint256(18) - strikePriceDecimals)); // wei
 
-        uint256 rightSideVal = (collateralAmt.mul(collateralToEthPrice)).div(
-            strikeToEthPrice
-        );
-        int32 rightSideExp = collateralExp;
+        uint256 rightSideVal = collateralAmt
+            .mul(collateralToEthPrice)
+            .mul(uint256(10)**(uint256(18) - collateral.decimals()))
+            .div(strikeToEthPrice); // wei
 
-        uint256 exp = 0;
-        bool stillSafe = false;
-        // 避免浮点比较大小，用乘法避免用除法
-        if (rightSideExp < leftSideExp) {
-            exp = uint256(leftSideExp - rightSideExp);
-            stillSafe = leftSideVal.mul(10**exp) <= rightSideVal;
-        } else {
-            exp = uint256(rightSideExp - leftSideExp);
-            stillSafe = leftSideVal <= rightSideVal.mul(10**exp);
-        }
-
-        return stillSafe;
+        return leftSideVal <= rightSideVal;
     }
 
     function maxOTokensIssuable(uint256 collateralAmt)
@@ -490,47 +472,39 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         return calculateOTokens(collateralAmt, minCollateralizationRatio);
     }
 
-    function calculateOTokens(uint256 collateralAmt, Float memory proportion)
-        internal
-        view
-        returns (uint256)
-    {
+    function calculateOTokens(
+        uint256 collateralAmt,
+        uint256 proportion // wei
+    ) internal view returns (uint256 numOptions) {
         // get price from Oracle
         uint256 collateralToEthPrice = 1;
         uint256 strikeToEthPrice = 1;
-
+        if (!isETH(collateral)) {
+            collateralAmt = collateralAmt.mul(
+                uint256(10)**(uint256(18) - collateral.decimals())
+            ); //wei
+        }
+        uint256 strikePriceWei = strikePrice.mul(
+            uint256(10)**(uint256(18) - strikePriceDecimals)
+        ); // wei
         if (collateral != strike) {
             collateralToEthPrice = getPrice(address(collateral));
             strikeToEthPrice = getPrice(address(strike));
         }
 
         // oTokensIssued  <= collAmt * collateralToStrikePrice / (proportion * strikePrice)
-        uint256 denomVal = proportion.value.mul(strikePrice.value);
-        int32 denomExp = proportion.exponent + strikePrice.exponent;
+        uint256 denomVal = proportion.mul(strikePriceWei); // wei
 
-        uint256 numeratorVal = (collateralAmt.mul(collateralToEthPrice)).div(
+        uint256 numeratorVal = collateralAmt.mul(collateralToEthPrice).div(
             strikeToEthPrice
-        );
-        int32 numeratorExp = collateralExp;
-
-        uint256 exp = 0;
-        uint256 numOptions = 0;
-
-        if (numeratorExp < denomExp) {
-            exp = uint256(denomExp - numeratorExp);
-            numOptions = numeratorVal.div(denomVal.mul(10**exp));
-        } else {
-            exp = uint256(numeratorExp - denomExp);
-            numOptions = numeratorVal.mul(10**exp).div(denomVal);
-        }
-
-        return numOptions;
+        ); // wei
+        numOptions = numeratorVal.div(denomVal); // wei
     }
 
     function calculateCollateralToPay(
-        Float memory _tokens,
-        Float memory proportion
-    ) internal view returns (Float memory result) {
+        uint256 _tokens, // wei
+        uint256 proportion // wei
+    ) internal view returns (uint256 result) {
         // Get price from oracle
         uint256 collateralToEthPrice = 1;
         uint256 strikeToEthPrice = 1;
@@ -543,18 +517,14 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         }
 
         // collateral的数量等于oToken的数量乘以strikePrice
-        uint256 amtCollateralToPayInEthNum = _tokens
-            .value
-            .mul(strikePrice.value)
-            .mul(proportion.value)
-            .mul(strikeToEthPrice);
-        int32 amtCollateralToPayExp = strikePrice.exponent +
-            proportion.exponent -
-            collateralExp;
-        uint256 amtCollateralToPay = amtCollateralToPayInEthNum.div(
-            collateralToEthPrice
-        );
-        result = Float(amtCollateralToPay, amtCollateralToPayExp);
+        result = _tokens
+            .mul(strikePrice)
+            .mul(proportion)
+            .mul(strikeToEthPrice)
+            .div(collateralToEthPrice)
+            .mul(uint(10)**(uint(18) - strikePriceDecimals)); // wei
+        if (!isETH(collateral))
+            result = result.mul(uint(10)**(collateral.decimals() - uint(18))); // wei 转成币种数量
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
@@ -587,10 +557,14 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     function createCollateralOption(uint256 amtCollateral)
         external
         payable
-        returns (uint256 amtCreateValue, int32 amtCreateExponent)
+        returns (uint256 amtToCreate)
     {
         if (!hasVault(msg.sender)) {
             openVault();
+        }
+
+        if (!isETH(collateral)) {
+            amtCollateral = amtCollateral.mul(uint(10)**(uint(18) - collateral.decimals())); // wei
         }
         uint256 liquidityEth = 0;
         uint256 collateralEth = 0;
@@ -630,18 +604,10 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         // checks that the vault is sufficiently collateralized
-        int32 amtToCreateExp = collateralExp -
-            strikePrice.exponent -
-            decimals();
-        uint256 amtToCreate;
-        if (amtToCreateExp > 0) {
-            amtToCreate = amtCollateral.div(strikePrice.value);
-        } else {
-            amtToCreate = amtCollateral.div(strikePrice.value);
-        }
 
-        amtCreateValue = amtToCreate;
-        amtCreateExponent = amtToCreateExp;
+        uint256 priceWei = strikePrice.mul(uint(10)**(uint(18) - strikePriceDecimals)); // wei
+        amtToCreate = amtCollateral.div(priceWei); // wei
+
         uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
         require(isSafe(vault.collateral, newTokensBalance), "UNSAFE_TO_MINT");
 
