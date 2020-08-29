@@ -16,24 +16,13 @@ contract PloutozOptFactory is Ownable {
     // The contract which interfaces with the exchange
     address public oracleAddress;
 
-    address uniswapRouter02;
-
     event OptionsContractCreated(address addr);
     event AssetAdded(string indexed asset, address indexed addr);
     event AssetChanged(string indexed asset, address indexed addr);
     event AssetDeleted(string indexed asset);
 
-    // constructor(address _oracleAddress, address _uniswapRouter02) public {
-    //     oracleAddress = _oracleAddress;
-    //     uniswapRouter02 = _uniswapRouter02;
-    // }
-
-    constructor(address _oracleAddress, address _uniswapRouter02)
-        public
-        Ownable()
-    {
+    constructor(address _oracleAddress) public Ownable() {
         oracleAddress = _oracleAddress;
-        uniswapRouter02 = _uniswapRouter02;
     }
 
     function createOptionsContract(
@@ -45,7 +34,8 @@ contract PloutozOptFactory is Ownable {
         uint256 _strikePrice,
         uint8 _strikePriceDecimals,
         uint256 _expiry,
-        uint256 _windowSize
+        uint256 _windowSize,
+        address _exchangeAddress
     ) public onlyOwner returns (address optionContractAddr) {
         require(_expiry > block.timestamp, "WRONG_EXPIRY");
         require(_windowSize <= _expiry, "INVALID_WINDOWSIZE");
@@ -70,7 +60,7 @@ contract PloutozOptFactory is Ownable {
             _expiry,
             _windowSize,
             oracleAddress,
-            uniswapRouter02,
+            _exchangeAddress,
             address(msg.sender)
         );
         optionsContracts.push(address(optionsContract));

@@ -1,7 +1,6 @@
 pragma solidity >=0.6.0;
 
 import "./lib/IWETH.sol";
-import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -22,6 +21,37 @@ interface CompoundOracleInterface {
     // function getPrice(address asset) public view returns (uint) {
     //     return 527557000000000;
     // }
+}
+
+interface IPloutozOptExchange {
+    function Weth() external view returns (address addr);
+
+    function sellOTokens(address oTokenAddress, uint256 oTokensToSell)
+        external
+        returns (uint256[] memory amounts);
+
+    function buyOTokens(address oTokenAddress, uint256 oTokensToBuy)
+        external
+        payable
+        returns (uint256[] memory amounts);
+
+    function addLiquidityETH(
+        uint256 amtToCreate,
+        address optContractAddresss,
+        address receiver
+    ) external payable returns (uint256 amountETH, uint256 liquidity);
+
+    // 能卖多少eth
+    function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
+        external
+        view
+        returns (uint256 amt);
+
+    // 能买多少出来
+    function premiumToPay(address oTokenAddress, uint256 oTokensToBuy)
+        external
+        view
+        returns (uint256 amts);
 }
 
 contract PloutozOptContract is Ownable, ERC20 {
@@ -65,7 +95,9 @@ contract PloutozOptContract is Ownable, ERC20 {
 
     IWETH Weth;
 
-    IUniswapV2Router02 public uniswapRouter02;
+    IPloutozOptExchange public exchange;
+
+    address exchangeAddress;
 
     constructor(
         string memory _name,
@@ -78,7 +110,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         uint256 _expiry,
         uint256 _windowSize,
         address _oracleAddress,
-        address _uniswapRouter2,
+        address _exchangeAddress,
         address owner
     ) public ERC20(_name, _symbol) {
         require(block.timestamp < _expiry, "EXPIRED");
@@ -106,7 +138,8 @@ contract PloutozOptContract is Ownable, ERC20 {
         strikePriceDecimals = _strikePriceDecimals;
         expiry = _expiry;
         windowSize = _windowSize;
-        uniswapRouter02 = IUniswapV2Router02(_uniswapRouter2);
+        exchange = IPloutozOptExchange(_exchangeAddress);
+        exchangeAddress = _exchangeAddress;
         COMPOUND_ORACLE = CompoundOracleInterface(_oracleAddress);
         transferOwnership(owner);
     }
@@ -633,15 +666,10 @@ contract PloutozOptContract is Ownable, ERC20 {
         //     ),
         //     "APPROVE FAILED"
         // );
-        (, uint256 amountETH, uint256 liquidity) = uniswapRouter02
-            .addLiquidityETH{value: liquidityEth}(
-            address(this),
-            amtToCreate,
-            1,
-            1,
-            msg.sender,
-            block.timestamp
-        );
+        transfer(exchangeAddress, amtToCreate);
+        (uint256 amountETH, uint256 liquidity) = exchange.addLiquidityETH{
+            value: liquidityEth
+        }(amtToCreate, address(this), msg.sender);
         if (liquidity > amountETH)
             TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
     }
@@ -652,7 +680,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         emit Received(msg.sender, msg.value);
     }
 
-    fallback() external payable {
-        // to get ether from uniswap exchanges
-    }
+    // fallback() external payable {
+    //     // to get ether from uniswap exchanges
+    // }
 }

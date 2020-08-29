@@ -15,7 +15,9 @@ contract PloutozOptExchange is Ownable {
     address public UNISWAP_FACTORY;
     address private WETH;
     IUniswapV2Router01 public uniswapRouter01;
+    address router01Address;
     IUniswapV2Router02 public uniswapRouter02;
+    address router02Address;
 
     // constructor(
     //     address _uniswapFactory,
@@ -34,6 +36,8 @@ contract PloutozOptExchange is Ownable {
         address _uniswapRouter02
     ) public Ownable() {
         UNISWAP_FACTORY = _uniswapFactory;
+        router01Address = _uniswapRouter01;
+        router02Address = _uniswapRouter02;
         uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
         uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
         WETH = uniswapRouter02.WETH();
@@ -57,14 +61,6 @@ contract PloutozOptExchange is Ownable {
     );
 
     event AddUniswapLiquidity(
-        address seller,
-        address tokenA,
-        address tokenB,
-        uint256 amountADesired,
-        uint256 amountBDesired,
-        uint256 amountAMin,
-        uint256 amountBMin,
-        address to,
         uint256 amountA,
         uint256 amountB,
         uint256 liquidity
@@ -135,6 +131,22 @@ contract PloutozOptExchange is Ownable {
         );
         if (msg.value > amounts[0])
             TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
+    }
+
+    function addLiquidityETH(
+        uint256 amtToCreate,
+        address optContractAddress,
+        address receiver
+    ) public payable returns (uint256 amountETH, uint256 liquidity) {
+        IERC20 optToken = IERC20(optContractAddress);
+        optToken.approve(router02Address, amtToCreate);
+        // (, amountETH, liquidity) = uniswapRouter02.addLiquidityETH{
+        //     value: msg.value
+        // }(optContractAddress, amtToCreate, 1, 1, receiver, block.timestamp);
+        if (liquidity > amountETH) {
+            TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
+        }
+        emit AddUniswapLiquidity(amtToCreate, msg.value, liquidity);
     }
 
     // 能卖多少eth

@@ -1,0 +1,22 @@
+{
+  "contracts": {},
+  "solidityLibs": {
+    "StringComparator": {
+      "address": "0x41669B8a674c47C215E5bef6AeA7D43098aE074C",
+      "constructorCode": "610298610026600b82828239805160001a60731461001957fe5b30600052607381538281f3fe",
+      "bodyBytecodeHash": "b8d0a5b79938c6c8966aad0571a064ea8d755c8e364af9ed27dec4bfdc6e7191",
+      "localBytecodeHash": "e88c18add973204442b05c1859aeb6d0168e3365e8dcb07af9be926e9e0c1f28",
+      "deployedBytecodeHash": "e88c18add973204442b05c1859aeb6d0168e3365e8dcb07af9be926e9e0c1f28"
+    }
+  },
+  "proxies": {
+    "option-protocol/PloutozOptFactory": [
+      {
+        "address": "0x0FAc2FceC02C6De91ef14B30399782D950dc75dc",
+        "kind": "NonProxy",
+        "bytecodeHash": "47d3a7e190b72b7e7d500cca95d019268121048c43aa6d8bf22a101e132879d0"
+      }
+    ]
+  },
+  "manifestVersion": "2.2"
+}
