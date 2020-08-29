@@ -1,10 +1,10 @@
 pragma solidity >=0.6.0;
 
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "./lib/CTokenInterface.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/math/SafeMath.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/math/SafeMath.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface CompoundOracleInterface {
     // returns asset:eth -- to get USDC:eth, have to do 10**24/result,
@@ -23,7 +23,7 @@ interface CompoundOracleInterface {
     // }
 }
 
-contract PloutozOracle is OwnableUpgradeSafe {
+contract PloutozOracle is Ownable {
     using SafeMath for uint256;
 
     mapping(address => bool) isCToken;
@@ -33,8 +33,7 @@ contract PloutozOracle is OwnableUpgradeSafe {
     // The Oracle used for the contract
     CompoundOracleInterface public PriceOracle;
 
-    function initialize(address _oracleAddress) public initializer {
-        __Ownable_init();
+    constructor(address _oracleAddress) public Ownable() {
         PriceOracle = CompoundOracleInterface(_oracleAddress);
         // Mainnet
         // address cBAT = 0x6C8c6b02E7b2BE14d4fA6022Dfd6d75921D90E4E;

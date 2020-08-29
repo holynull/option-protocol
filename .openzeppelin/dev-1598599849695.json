@@ -2,7 +2,7 @@
   "contracts": {},
   "solidityLibs": {
     "StringComparator": {
-      "address": "0x2edfCbd47C82c8522f072Ce82b572e4AcE73EC07",
+      "address": "0x5b1869D9A4C187F2EAa108f3062412ecf0526b24",
       "constructorCode": "610298610026600b82828239805160001a60731461001957fe5b30600052607381538281f3fe",
       "bodyBytecodeHash": "b8d0a5b79938c6c8966aad0571a064ea8d755c8e364af9ed27dec4bfdc6e7191",
       "localBytecodeHash": "e88c18add973204442b05c1859aeb6d0168e3365e8dcb07af9be926e9e0c1f28",
@@ -12,14 +12,29 @@
   "proxies": {
     "option-protocol/PloutozOracle": [
       {
-        "address": "0xa53b511e146239A3643c0C96c29865055535c0F3",
+        "address": "0xe78A0F7E598Cc8b0Bb87894B0F60dD2a88d6a8Ab",
         "kind": "NonProxy",
         "bytecodeHash": "5e22d65c895ce33abe4a55a9a3242ee86fa2ba0273cbc1fcfcd517fbe9bb266f"
       }
     ],
     "option-protocol/PloutozOptFactory": [
       {
-        "address": "0x336f9b992736bE0ba0bc3Adfd0C46200E27DA46D",
+        "address": "0xCfEB869F69431e42cdB54A4F4f105C19C080A601",
+        "kind": "NonProxy",
+        "bytecodeHash": "d169bad8b751734e5d7b5051125b47b07d3ed290df2fcf2d9cc9f82a4423b408"
+      },
+      {
+        "address": "0xC89Ce4735882C9F0f0FE26686c53074E09B0D550",
+        "kind": "NonProxy",
+        "bytecodeHash": "5d5ffee5866b9887c360e93ff73d52553d875204ca46ad04f24d4943ff6f0e84"
+      },
+      {
+        "address": "0x9561C133DD8580860B6b7E504bC5Aa500f0f06a7",
+        "kind": "NonProxy",
+        "bytecodeHash": "3cd2dcfb8eaede9e76abce2a95ef7bef0e7d653259a789f082687549c770ee92"
+      },
+      {
+        "address": "0x59d3631c86BbE35EF041872d502F218A39FBa150",
         "kind": "NonProxy",
         "bytecodeHash": "3512508cdce8c68ab05b155e955e87e6a7d114de5bc45d22a56a93e996aec288"
       }

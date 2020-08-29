@@ -5,10 +5,10 @@ import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./lib/UniswapV2Library.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract PloutozOptExchange is OwnableUpgradeSafe {
+contract PloutozOptExchange is Ownable {
     uint256 constant LARGE_BLOCK_SIZE = 1651753129000;
     uint256 constant LARGE_APPROVAL_NUMBER = 10**30;
 
@@ -28,16 +28,15 @@ contract PloutozOptExchange is OwnableUpgradeSafe {
     //     WETH = uniswapRouter02.WETH();
     // }
 
-    function initialize(
+    constructor(
         address _uniswapFactory,
         address _uniswapRouter01,
         address _uniswapRouter02
-    ) public initializer {
+    ) public Ownable() {
         UNISWAP_FACTORY = _uniswapFactory;
         uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
         uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
         WETH = uniswapRouter02.WETH();
-        __Ownable_init();
     }
 
     /*** Events ***/

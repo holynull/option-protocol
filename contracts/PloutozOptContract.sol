@@ -3,9 +3,9 @@ pragma solidity >=0.6.0;
 import "./lib/IWETH.sol";
 import "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/ERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts-ethereum-package/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 interface CompoundOracleInterface {
     // returns asset:eth -- to get USDC:eth, have to do 10**24/result,
@@ -24,7 +24,7 @@ interface CompoundOracleInterface {
     // }
 }
 
-contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
+contract PloutozOptContract is Ownable, ERC20 {
     using SafeMath for uint256;
 
     struct Vault {
@@ -53,13 +53,13 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
     uint256 public expiry;
 
     // 抵押币种
-    ERC20UpgradeSafe public collateral;
+    ERC20 public collateral;
 
     // 标的币种
-    ERC20UpgradeSafe public underlying;
+    ERC20 public underlying;
 
     // 计价币种
-    ERC20UpgradeSafe public strike;
+    ERC20 public strike;
 
     CompoundOracleInterface public COMPOUND_ORACLE;
 
@@ -67,46 +67,48 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
     IUniswapV2Router02 public uniswapRouter02;
 
-    constructor(string memory _name, string memory _symbol) public {
-        __ERC20_init(_name, _symbol);
-        __Ownable_init();
-    }
-
-    function setOption(
-        ERC20UpgradeSafe _collateral,
-        ERC20UpgradeSafe _underlying,
-        ERC20UpgradeSafe _strike,
+    constructor(
+        string memory _name,
+        string memory _symbol,
+        address _underlying,
+        address _strike,
+        address _collateral,
         uint256 _strikePrice,
         uint8 _strikePriceDecimals,
         uint256 _expiry,
         uint256 _windowSize,
         address _oracleAddress,
-        address _uniswapRouter2
-    ) public onlyOwner {
+        address _uniswapRouter2,
+        address owner
+    ) public ERC20(_name, _symbol) {
         require(block.timestamp < _expiry, "EXPIRED");
         require(_windowSize <= _expiry, "WINDOW_SIZE_BIGGER_THEN_EXPIRY");
-        require(
-            _collateral.decimals() <= 18 && _collateral.decimals() > 0,
-            "抵押币种不是正经erc20币，小数位数大于18"
-        );
-        require(
-            _underlying.decimals() <= 18 && _underlying.decimals() > 0,
-            "标的币种不是正经erc20币，小数位数大于18"
-        );
-        require(
-            _strikePriceDecimals <= 18 && _strikePriceDecimals > 0,
-            "价格小数位数不能大于18"
-        );
+        underlying = ERC20(_underlying);
+        strike = ERC20(_strike);
+        collateral = ERC20(_collateral);
+        // require(
+        //     _collateral.decimals() <= uint256(18) &&
+        //         _collateral.decimals() > uint256(0),
+        //     "抵押币种不是正经erc20币，小数位数大于18"
+        // );
+        // require(
+        //     _underlying.decimals() <= uint256(18) &&
+        //         underlying.decimals() > uint256(0),
+        //     "标的币种不是正经erc20币，小数位数大于18"
+        // );
+        // require(
+        //     _strikePriceDecimals <= uint256(18) &&
+        //         _strikePriceDecimals > uint256(0),
+        //     "价格小数位数不能大于18"
+        // );
 
-        collateral = _collateral;
-        underlying = _underlying;
         strikePrice = _strikePrice;
-        strike = _strike;
-
+        strikePriceDecimals = _strikePriceDecimals;
         expiry = _expiry;
-        COMPOUND_ORACLE = CompoundOracleInterface(_oracleAddress);
         windowSize = _windowSize;
         uniswapRouter02 = IUniswapV2Router02(_uniswapRouter2);
+        COMPOUND_ORACLE = CompoundOracleInterface(_oracleAddress);
+        transferOwnership(owner);
     }
 
     event VaultOpened(address payable vaultOwner);
@@ -522,9 +524,11 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
             .mul(proportion)
             .mul(strikeToEthPrice)
             .div(collateralToEthPrice)
-            .mul(uint(10)**(uint(18) - strikePriceDecimals)); // wei
+            .mul(uint256(10)**(uint256(18) - strikePriceDecimals)); // wei
         if (!isETH(collateral))
-            result = result.mul(uint(10)**(collateral.decimals() - uint(18))); // wei 转成币种数量
+            result = result.mul(
+                uint256(10)**(collateral.decimals() - uint256(18))
+            ); // wei 转成币种数量
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
@@ -564,7 +568,9 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
         }
 
         if (!isETH(collateral)) {
-            amtCollateral = amtCollateral.mul(uint(10)**(uint(18) - collateral.decimals())); // wei
+            amtCollateral = amtCollateral.mul(
+                uint256(10)**(uint256(18) - collateral.decimals())
+            ); // wei
         }
         uint256 liquidityEth = 0;
         uint256 collateralEth = 0;
@@ -605,7 +611,9 @@ contract PloutozOptContract is OwnableUpgradeSafe, ERC20UpgradeSafe {
 
         // checks that the vault is sufficiently collateralized
 
-        uint256 priceWei = strikePrice.mul(uint(10)**(uint(18) - strikePriceDecimals)); // wei
+        uint256 priceWei = strikePrice.mul(
+            uint256(10)**(uint256(18) - strikePriceDecimals)
+        ); // wei
         amtToCreate = amtCollateral.div(priceWei); // wei
 
         uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
