@@ -681,9 +681,13 @@ contract PloutozOptContract is Ownable, ERC20 {
         (uint256 amountETH, uint256 liquidity) = exchange.addLiquidityETH{
             value: liquidityEth
         }(amtToCreate, address(this), msg.sender);
-        if (liquidity > amountETH)
+        if (liquidity > amountETH) {
             TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
+            emit ChargeDust(msg.sender, liquidity - amountETH);
+        }
     }
+
+    event ChargeDust(address to, uint256 amt);
 
     event Received(address, uint256);
 
