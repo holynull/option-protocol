@@ -199,6 +199,25 @@ contract PloutozOptContract is Ownable, ERC20 {
         return owners;
     }
 
+    function getVault(address payable vaultOwner)
+        public
+        view
+        returns (
+            uint256,
+            uint256,
+            uint256,
+            bool
+        )
+    {
+        Vault storage vault = vaults[vaultOwner];
+        return (
+            vault.collateral,
+            vault.tokensIssued,
+            vault.underlying,
+            vault.owned
+        );
+    }
+
     function hasVault(address payable owner) public view returns (bool) {
         return vaults[owner].owned;
     }
