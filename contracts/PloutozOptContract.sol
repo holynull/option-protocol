@@ -58,9 +58,9 @@ contract PloutozOptContract is Ownable, ERC20 {
     using SafeMath for uint256;
 
     struct Vault {
-        uint256 collateral; // 抵押币种的数量
-        uint256 tokensIssued; // 发行的期权合约的数量
-        uint256 underlying; // 获得的underlying的数量
+        uint256 collateral; // wei, 抵押币种的数量
+        uint256 tokensIssued; // wei, 发行的期权合约的数量
+        uint256 underlying; // wei, 获得的underlying的数量
         bool owned;
     }
 
@@ -141,6 +141,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         exchange = IPloutozOptExchange(_exchangeAddress);
         exchangeAddress = _exchangeAddress;
         COMPOUND_ORACLE = CompoundOracleInterface(_oracleAddress);
+        Weth = IWETH(exchange.Weth());
         transferOwnership(owner);
     }
 
@@ -153,6 +154,7 @@ contract PloutozOptContract is Ownable, ERC20 {
 
     event IssuedOTokens(
         address issuedTo,
+        uint256 collateralAmt,
         uint256 tokensIssued,
         address payable vaultOwner
     );
@@ -471,32 +473,31 @@ contract PloutozOptContract is Ownable, ERC20 {
     }
 
     // tokensIssued wei
-    function isSafe(uint256 collateralAmt, uint256 tokensIssued)
-        internal
-        view
-        returns (bool)
-    {
+    function isSafe(
+        uint256 collateralAmt, // wei
+        uint256 tokensIssued //wei
+    ) internal view returns (bool result) {
         // get price from Oracle
         uint256 collateralToEthPrice = 1;
         uint256 strikeToEthPrice = 1;
 
         if (collateral != strike) {
-            collateralToEthPrice = getPrice(address(collateral));
-            strikeToEthPrice = getPrice(address(strike));
+            // collateralToEthPrice = getPrice(address(collateral));
+            // strikeToEthPrice = getPrice(address(strike));
         }
 
         // check `oTokensIssued * minCollateralizationRatio * strikePrice <= collAmt * collateralToStrikePrice` 流通期权合约的相对抵押物的价值，不能小于vault中抵押物的 1/16
         uint256 leftSideVal = tokensIssued
             .mul(minCollateralizationRatio)
+            .div(10**18)
             .mul(strikePrice)
-            .mul(uint256(10)**(uint256(18) - strikePriceDecimals)); // wei
+            .div(10**uint256(strikePriceDecimals)); // wei
 
-        uint256 rightSideVal = collateralAmt
-            .mul(collateralToEthPrice)
-            .mul(uint256(10)**(uint256(18) - collateral.decimals()))
-            .div(strikeToEthPrice); // wei
+        uint256 rightSideVal = collateralAmt.mul(collateralToEthPrice).div(
+            strikeToEthPrice
+        ); // wei
 
-        return leftSideVal <= rightSideVal;
+        result = (leftSideVal <= rightSideVal);
     }
 
     function maxOTokensIssuable(uint256 collateralAmt)
@@ -516,11 +517,11 @@ contract PloutozOptContract is Ownable, ERC20 {
         uint256 strikeToEthPrice = 1;
         if (!isETH(collateral)) {
             collateralAmt = collateralAmt.mul(
-                uint256(10)**(uint256(18) - collateral.decimals())
+                10**(uint256(18) - collateral.decimals())
             ); //wei
         }
         uint256 strikePriceWei = strikePrice.mul(
-            uint256(10)**(uint256(18) - strikePriceDecimals)
+            10**(uint256(18) - strikePriceDecimals)
         ); // wei
         if (collateral != strike) {
             collateralToEthPrice = getPrice(address(collateral));
@@ -557,11 +558,9 @@ contract PloutozOptContract is Ownable, ERC20 {
             .mul(proportion)
             .mul(strikeToEthPrice)
             .div(collateralToEthPrice)
-            .mul(uint256(10)**(uint256(18) - strikePriceDecimals)); // wei
+            .mul(10**(uint256(18) - strikePriceDecimals)); // wei
         if (!isETH(collateral))
-            result = result.mul(
-                uint256(10)**(collateral.decimals() - uint256(18))
-            ); // wei 转成币种数量
+            result = result.mul(10**(collateral.decimals() - uint256(18))); // wei 转成币种数量
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
@@ -591,20 +590,18 @@ contract PloutozOptContract is Ownable, ERC20 {
     }
 
     // 实际数量amtCollateral*10**collateralExp
-    function createCollateralOption(uint256 amtCollateral)
-        external
-        payable
-        returns (uint256 amtToCreate)
-    {
+    function createCollateralOption(
+        uint256 amtCollateral // wei
+    ) external payable returns (uint256 amtToCreate) {
         if (!hasVault(msg.sender)) {
             openVault();
         }
 
-        if (!isETH(collateral)) {
-            amtCollateral = amtCollateral.mul(
-                uint256(10)**(uint256(18) - collateral.decimals())
-            ); // wei
-        }
+        // if (!isETH(collateral)) {
+        //     amtCollateral = amtCollateral.mul(
+        //         10**(uint256(18) - collateral.decimals())
+        //     ); // wei
+        // }
         uint256 liquidityEth = 0;
         uint256 collateralEth = 0;
         if (isETH(collateral)) {
@@ -644,10 +641,9 @@ contract PloutozOptContract is Ownable, ERC20 {
 
         // checks that the vault is sufficiently collateralized
 
-        uint256 priceWei = strikePrice.mul(
-            uint256(10)**(uint256(18) - strikePriceDecimals)
+        amtToCreate = amtCollateral.mul(10**uint256(strikePriceDecimals)).div(
+            strikePrice
         ); // wei
-        amtToCreate = amtCollateral.div(priceWei); // wei
 
         uint256 newTokensBalance = vault.tokensIssued.add(amtToCreate);
         require(isSafe(vault.collateral, newTokensBalance), "UNSAFE_TO_MINT");
@@ -655,17 +651,13 @@ contract PloutozOptContract is Ownable, ERC20 {
         // issue the oTokens
         vault.tokensIssued = newTokensBalance;
         _mint(msg.sender, amtToCreate);
-        emit IssuedOTokens(msg.sender, amtToCreate, msg.sender);
+        emit IssuedOTokens(
+            msg.sender,
+            vault.collateral,
+            amtToCreate,
+            msg.sender
+        );
 
-        // IERC20 oToken = IERC20(address(this));
-        // todo: 这可能不对
-        // require(
-        //     oToken.approve(
-        //         address(optionsExchange.uniswapRouter02),
-        //         amtToCreate
-        //     ),
-        //     "APPROVE FAILED"
-        // );
         transfer(exchangeAddress, amtToCreate);
         (uint256 amountETH, uint256 liquidity) = exchange.addLiquidityETH{
             value: liquidityEth

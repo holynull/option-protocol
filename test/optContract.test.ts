@@ -1,13 +1,26 @@
 const { expectRevert, time } = require('@openzeppelin/test-helpers');
 import { expect, assert } from 'chai';
-import { PloutozOptContractContract, PloutozOptContractInstance, PloutozOptFactoryContract, PloutozOptFactoryInstance, PloutozOracleContract, PloutozOracleInstance, PloutozOptExchangeContract, PloutozOptExchangeInstance } from '../build/types/truffle-types';
+import {
+    PloutozOptContractContract,
+    PloutozOptContractInstance,
+    PloutozOptFactoryContract,
+    PloutozOptFactoryInstance,
+    PloutozOracleContract,
+    PloutozOracleInstance,
+    PloutozOptExchangeContract,
+    PloutozOptExchangeInstance,
+    WETH9Contract,
+    WETH9Instance,
+} from '../build/types/truffle-types';
 // Load compiled artifacts
 const PloutozOptContract: PloutozOptContractContract = artifacts.require('PloutozOptContract.sol');
 const PloutozOptFactoryContract: PloutozOptFactoryContract = artifacts.require('PloutozOptFactory.sol');
 const PloutozOracleContract: PloutozOracleContract = artifacts.require('PloutozOracle.sol');
 const PloutozOptExchangeContract: PloutozOptExchangeContract = artifacts.require('PloutozOptExchange.sol');
+const WETH9Contract: WETH9Contract = artifacts.require('WETH9.sol');
 const truffleAssert = require('truffle-assertions');
 const Web3Utils = require('web3-utils');
+import { BigNumber } from 'bignumber.js';
 import { getUnixTime, addMonths, addSeconds, fromUnixTime } from 'date-fns';
 
 contract('期权合约 Call ETH/USDC', async accounts => {
@@ -29,23 +42,28 @@ contract('期权合约 Call ETH/USDC', async accounts => {
 
     let optContract: PloutozOptContractInstance;
 
-    let decimal;
-    let symbol;
-    let name;
-    let underlying;
-    let strike;
-    let collateral;
-    let strikePrice;
-    let strikePriceDecimals;
-    let expiry;
-    let windwosize;
-    let exchangeAddress;
+    let wethContract: WETH9Instance;
+
+    let decimal: BigNumber;
+    let symbol: string;
+    let name: string;
+    let underlying: string;
+    let strike: string;
+    let collateral: string;
+    let strikePrice: BigNumber;
+    let strikePriceDecimals: BigNumber;
+    let expiry: BigNumber;
+    let windwosize: BigNumber;
+    let exchangeAddress: string;
+    let wethAddress: string;
+    let optContractAddress: string;
 
     before('获取要测试的期权合约', async () => {
         // await StringComparatorContract.new();
         oracleContract = await PloutozOracleContract.deployed();
         factory = await PloutozOptFactoryContract.deployed();
-        // exchange = await PloutozOptExchangeContract.deployed();
+        wethContract = await WETH9Contract.deployed();
+        exchange = await PloutozOptExchangeContract.deployed();
 
         let supportUSDC = await factory.supportsAsset('USDC');
         if (!supportUSDC) {
@@ -60,10 +78,8 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             '2500', // strikePrice
             6, // strikePriceDecimals
             '1599719343', // expiry
-            '1598344440', // windowsize
-            '0xAF720c51e5100207852900a34C4DdFf8E056E0c7' // exchange address
+            '1598344440' // windowsize
         );
-        let optContractAddress;
         if (creatRes.logs) {
             creatRes.logs.forEach(e => {
                 if (e.event === 'OptionsContractCreated') {
@@ -86,7 +102,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             console.log('strike address: ' + strike);
             collateral = await optContract.collateral();
             console.log('collateral: ' + collateral);
-            strikePrice = await optContract.strikePrice();
+            strikePrice = await (await optContract.strikePrice());
             console.log('strike Price: ' + strikePrice);
             strikePriceDecimals = await optContract.strikePriceDecimals();
             console.log('strike Price Decimals: ' + strikePriceDecimals);
@@ -107,7 +123,19 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             let ethAmtSend = web3.utils.toWei('2', 'ether');
             // put 合约中
             let res = await optContract.createCollateralOption(collateralAmt, { value: ethAmtSend });
-            console.log(res.logs);
+            // console.log(res.logs);
+            let tokens = await optContract.balanceOf(exchange.address); // 生成期权合约的数量，这些期权合约将被转给exchange
+            let v = new BigNumber(collateralAmt).div(strikePrice).multipliedBy(new BigNumber(10).exponentiatedBy(strikePriceDecimals)); // 根据抵押数量计算出来的期权数量
+            console.log('Issue token: ' + v.toString());
+            console.log('The tokens transfer to exchange: ' + tokens.toString());
+            expect(v.comparedTo(tokens)).equal(0);
+            let optContractEthBalance = await web3.eth.getBalance(optContractAddress); // 期权合约上的eth的数量，应该为0
+            // let wethBalance = await web3.eth.getBalance(wethAddress);
+            // console.log("Weth ETH balance: " + wethBalance);
+            expect(optContractEthBalance).equal('0');
+
+            let optContractWETHBalance = await wethContract.balanceOf(optContractAddress);
+            expect(optContractWETHBalance.toString()).equal(collateralAmt);
         });
     });
 

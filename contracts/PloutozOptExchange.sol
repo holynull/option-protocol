@@ -33,14 +33,19 @@ contract PloutozOptExchange is Ownable {
     constructor(
         address _uniswapFactory,
         address _uniswapRouter01,
-        address _uniswapRouter02
+        address _uniswapRouter02,
+        address _wethAddress
     ) public Ownable() {
         UNISWAP_FACTORY = _uniswapFactory;
         router01Address = _uniswapRouter01;
         router02Address = _uniswapRouter02;
         uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
         uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
-        WETH = uniswapRouter02.WETH();
+        if (_wethAddress == address(0)) {
+            WETH = uniswapRouter02.WETH();
+        } else {
+            WETH = _wethAddress;
+        }
     }
 
     /*** Events ***/
