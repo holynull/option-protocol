@@ -41,6 +41,9 @@ interface IPloutozOptExchange {
         address receiver
     ) external payable returns (uint256 amountETH, uint256 liquidity);
 
+    function redeemLiquidity(address optContractAddress, address receiver)
+        external;
+
     // 能卖多少eth
     function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
         external
@@ -186,6 +189,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         _;
     }
 
+    // 获取vault所有者的地址
     function getVaultOwners() public view returns (address payable[] memory) {
         address payable[] memory owners;
         uint256 index = 0;
@@ -199,6 +203,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         return owners;
     }
 
+    // 获取vault数据
     function getVault(address payable vaultOwner)
         public
         view
@@ -218,11 +223,12 @@ contract PloutozOptContract is Ownable, ERC20 {
         );
     }
 
+    // 判断是否拥有vault
     function hasVault(address payable owner) public view returns (bool) {
         return vaults[owner].owned;
     }
 
-    function openVault() public notExpired returns (bool) {
+    function openVault() internal notExpired returns (bool) {
         require(!hasVault(msg.sender), "Vault already created");
 
         vaults[msg.sender] = Vault(0, 0, 0, true);
@@ -232,23 +238,30 @@ contract PloutozOptContract is Ownable, ERC20 {
         return true;
     }
 
+    // 是否在窗口期
     function isExerciseWindow() public view returns (bool) {
         return ((block.timestamp >= expiry.sub(windowSize)) &&
             (block.timestamp < expiry));
     }
 
+    // 判断是否已过期
     function hasExpired() public view returns (bool) {
         return (block.timestamp >= expiry);
     }
 
+    // 行权
     function exercise(
-        uint256 tokensToExercise, // wei
-        address payable[] memory vaultsToExerciseFrom
-    ) public payable {
+        uint256 tokensToExercise // wei
+    ) external payable {
+        uint256 tokenBalance = balanceOf(msg.sender);
+        require(
+            tokensToExercise <= tokenBalance,
+            "insufficent tokens to exercise"
+        );
         // 将eth换成weth，防止重入，行权两次
         Weth.deposit{value: msg.value}();
-        for (uint256 i = 0; i < vaultsToExerciseFrom.length; i++) {
-            address payable vaultOwner = vaultsToExerciseFrom[i];
+        for (uint256 i = 0; i < vaultOwners.length; i++) {
+            address payable vaultOwner = vaultOwners[i];
             require(
                 hasVault(vaultOwner),
                 "CANNOT_EXERCISE_FROM_A_VAULT_THAT_DOESN'T_EXIST"
@@ -270,6 +283,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         );
     }
 
+    // seller提取给付的标的
     function removeUnderlying() public {
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
         Vault storage vault = vaults[msg.sender];
@@ -283,14 +297,11 @@ contract PloutozOptContract is Ownable, ERC20 {
         emit RemoveUnderlying(underlyingToTransfer, msg.sender);
     }
 
-    /**
-     * @notice Returns true if the given ERC20 is ETH.
-     * @param _ierc20 the ERC20 asset.
-     */
     function isETH(IERC20 _ierc20) public pure returns (bool) {
         return _ierc20 == IERC20(0);
     }
 
+    // 销毁一定数量的期权
     function burnOTokens(uint256 amtToBurn) public notExpired {
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
@@ -327,6 +338,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         emit RemoveCollateral(amtToRemove, msg.sender);
     }
 
+    // seller进行赎回清算
     function redeemVaultBalance() public {
         require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
@@ -344,7 +356,8 @@ contract PloutozOptContract is Ownable, ERC20 {
 
         transferCollateral(msg.sender, collateralToTransfer);
         transferUnderlying(msg.sender, underlyingToTransfer);
-
+        // 赎回uniswap流动性
+        exchange.redeemLiquidity(address(this), msg.sender);
         emit RedeemVaultBalance(
             collateralToTransfer,
             underlyingToTransfer,
@@ -360,16 +373,6 @@ contract PloutozOptContract is Ownable, ERC20 {
         return stillUnsafe;
     }
 
-    /**
-     * @notice This function returns if an -30 <= exponent <= 30
-     */
-    function isWithinExponentRange(int32 val) internal pure returns (bool re) {
-        re = ((val <= 30) && (val >= -30));
-    }
-
-    /**
-     * @notice This function calculates and returns the amount of collateral in the vault
-     */
     function getCollateral(address payable vaultOwner)
         internal
         view
@@ -379,9 +382,6 @@ contract PloutozOptContract is Ownable, ERC20 {
         return vault.collateral;
     }
 
-    /**
-     * @notice This function calculates and returns the amount of puts issued by the Vault
-     */
     function getOTokensIssued(address payable vaultOwner)
         internal
         view
@@ -410,21 +410,10 @@ contract PloutozOptContract is Ownable, ERC20 {
             tokensToExercise <= vault.tokensIssued,
             "CAN'T EXERCISE MORE OTOKENS THAN THE OWNER HAS"
         );
-        // Ensure person calling has enough oTokens
-        require(
-            balanceOf(msg.sender) >= tokensToExercise,
-            "NOT ENOUGH OTOKENS"
-        );
 
         // 1. Check sufficient underlying
         // 1.1 update underlying balances
-        uint256 amtUnderlyingToPay; // 默认1一个token对应一个underlying
-        if (isETH(underlying)) {
-            amtUnderlyingToPay = tokensToExercise;
-        } else {
-            uint256 factor = uint256(10)**(underlying.decimals() - uint256(18));
-            amtUnderlyingToPay = tokensToExercise.mul(factor);
-        }
+        uint256 amtUnderlyingToPay = tokensToExercise; // wei 默认1一个token对应一个underlying
         vault.underlying = vault.underlying.add(amtUnderlyingToPay);
 
         // 2. Calculate Collateral to pay
@@ -457,11 +446,14 @@ contract PloutozOptContract is Ownable, ERC20 {
         if (isETH(underlying)) {
             require(msg.value == amtUnderlyingToPay, "INCORRECT MSG.VALUE");
         } else {
+            uint256 underlyingAmt = amtUnderlyingToPay.mul(
+                underlying.decimals() - uint256(18)
+            );
             require(
                 underlying.transferFrom(
                     msg.sender,
                     address(this),
-                    amtUnderlyingToPay
+                    underlyingAmt
                 ),
                 "COULD NOT TRANSFER IN TOKENS"
             );
@@ -608,7 +600,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         }
     }
 
-    // 实际数量amtCollateral*10**collateralExp
+    // seller抵押发布期权；实际数量amtCollateral*10**collateralExp
     function createCollateralOption(
         uint256 amtCollateral // wei
     ) external payable returns (uint256 amtToCreate) {
@@ -681,9 +673,9 @@ contract PloutozOptContract is Ownable, ERC20 {
         (uint256 amountETH, uint256 liquidity) = exchange.addLiquidityETH{
             value: liquidityEth
         }(amtToCreate, address(this), msg.sender);
-        if (liquidity > amountETH) {
-            TransferHelper.safeTransferETH(msg.sender, liquidity - amountETH);
-            emit ChargeDust(msg.sender, liquidity - amountETH);
+        if (liquidityEth > amountETH) {
+            TransferHelper.safeTransferETH(msg.sender, liquidityEth - amountETH);
+            emit ChargeDust(msg.sender, liquidityEth - amountETH);
         }
     }
 
