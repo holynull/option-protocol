@@ -89,7 +89,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
                 break;
             case 4: // rinkeby
                 usdcAddress = '0x4DBCdF9B62e891a7cec5A2568C3F4FAF9E8Abe2b';
-                wethContractAddress = '0xd0a1e359811322d97991e03f863a0c30c2cf029c';
+                wethContractAddress = '0xc778417e063141139fce010982780140aa0cd5ab';
                 wethContract = await WETH9Contract.at(wethContractAddress);
                 break;
         }
@@ -130,7 +130,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             collateral = await optContract.collateral();
             console.log('collateral: ' + collateral);
             strikePrice = await (await optContract.strikePrice());
-            console.log('strike Price: ' + strikePrice);
+            console.log('strike Price: ' + new BigNumber(strikePrice.toString()).toFormat());
             strikePriceDecimals = await optContract.strikePriceDecimals();
             console.log('strike Price Decimals: ' + strikePriceDecimals);
             expiry = await optContract.expiry();
@@ -143,15 +143,15 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             collateralAmt = 0.001; // 打算抵押eth的数量
             collateralAmtWei = new BigNumber(web3.utils.toWei(String(collateralAmt), 'ether'));
             tokensWei = collateralAmtWei.multipliedBy(new BigNumber(10).exponentiatedBy(strikePriceDecimals)).div(strikePrice);
-            disirePrice = 0.3; // 期望价格 usd/张期权合约, $1.30
-            let underlyingEthPriceWei: BigNumber = await oracleContract.getPrice(underlying);
-            console.log('underlyingEthPriceWei: ' + underlyingEthPriceWei);
+            disirePrice = 0.1; // 期望价格 usd/张期权合约, $1.30
+            let underlyingEthPriceWei: BigNumber = new BigNumber(await oracleContract.getPrice(underlying));
+            console.log('underlyingEthPriceWei: ' + underlyingEthPriceWei.toFormat());
             liquidityEthWei = tokensWei.multipliedBy(new BigNumber(10).exponentiatedBy(-18)).multipliedBy(disirePrice).multipliedBy(underlyingEthPriceWei);
 
-            console.log('collateralAmtWei: ' + collateralAmtWei);
-            console.log('liquidityEthWei: ' + liquidityEthWei);
+            console.log('collateralAmtWei: ' + collateralAmtWei.toFormat());
+            console.log('liquidityEthWei: ' + liquidityEthWei.toFormat());
             let totalEthAmtWei = collateralAmtWei.plus(liquidityEthWei);
-            console.log('totalEthAmtWei: ' + totalEthAmtWei.toFixed());
+            console.log('totalEthAmtWei: ' + totalEthAmtWei.toFormat());
 
             let res = await optContract.createCollateralOption(collateralAmtWei, { value: totalEthAmtWei.toFixed() });
 
@@ -176,8 +176,13 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             let optContractWETHBalance = await wethContract.balanceOf(optContractAddress); // 期权合约上抵押的weth数量是否正确
             expect(optContractWETHBalance.toString()).equal(collateralAmtWei.toFixed());
         });
-        it('检查uniswap流动性', async () => {
-            // todo：检查流动性
+        it('托管的liquidity应该等于opt合约上的liquidity余额', async () => {
+            // 流动性在exchange上托管
+            let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
+            console.log('liquidity: ' + new BigNumber(liquidity).toFormat());
+            let vault: any = await optContract.getVault(accounts[0]);
+            let vLiquidity = new BigNumber(vault[3].toString());
+            expect(vLiquidity.comparedTo(liquidity) === 0).equal(true);
         });
         it('保险库抵押的数量等于抵押数量', async () => {
             let arr = await optContract.getVault(accounts[0]);

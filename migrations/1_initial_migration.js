@@ -4,6 +4,11 @@ const ploutozOracle = artifacts.require("PloutozOracle");
 const stringComparator = artifacts.require('StringComparator.sol');
 const weth = artifacts.require('WETH9.sol');
 
+const addres0 = "0x0000000000000000000000000000000000000000";
+const uniswapFactoryAddress = '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f';
+const uniswapRouter01Address = '0xf164fC0Ec4E93095b804a4795bBe1e041497b92a';
+const uniswapRouter02Address = '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D';
+
 module.exports = async function (deployer) {
     if (deployer.network.indexOf('skipMigrations') > -1) { // skip migration
         return;
@@ -14,7 +19,7 @@ module.exports = async function (deployer) {
         let oracleContract = await deployer.deploy(ploutozOracle, compoundOracleAddress);
         // let wethContract = await deployer.deploy(weth);
         // console.log('WETH contract address: ' + wethContract.address);
-        let exchangeContract = await deployer.deploy(exchange, '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', '0xf164fC0Ec4E93095b804a4795bBe1e041497b92a', '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', '0x0000000000000000000000000000000000000000');
+        let exchangeContract = await deployer.deploy(exchange, uniswapFactoryAddress, uniswapRouter01Address, uniswapRouter02Address, address0);
         deployer.link(stringComparator, factory);
         let factoryContract = await deployer.deploy(factory, oracleContract.address, exchangeContract.address);
         // let exchangeContract=await deployer.
@@ -26,7 +31,7 @@ module.exports = async function (deployer) {
         let oracleContract = await deployer.deploy(ploutozOracle, compoundOracleAddress);
         let wethContract = await deployer.deploy(weth);
         console.log('WETH contract address: ' + wethContract.address);
-        let exchangeContract = await deployer.deploy(exchange, '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', '0xf164fC0Ec4E93095b804a4795bBe1e041497b92a', '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', wethContract.address);
+        let exchangeContract = await deployer.deploy(exchange, uniswapFactoryAddress, uniswapRouter01Address, uniswapRouter02Address, wethContract.address);
         deployer.link(stringComparator, factory);
         let factoryContract = await deployer.deploy(factory, oracleContract.address, exchangeContract.address);
         // let exchangeContract=await deployer.
@@ -36,11 +41,11 @@ module.exports = async function (deployer) {
         let oracleContract = await deployer.deploy(ploutozOracle, compoundOracleAddress);
         // let wethContract = await deployer.deploy(weth);
         // console.log('WETH contract address: ' + wethContract.address);
-        let exchangeContract = await deployer.deploy(exchange, '0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f', '0xf164fC0Ec4E93095b804a4795bBe1e041497b92a', '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D', '0x0000000000000000000000000000000000000000');
+        let exchangeContract = await deployer.deploy(exchange, uniswapFactoryAddress, uniswapRouter01Address, uniswapRouter02Address, addres0);
         deployer.link(stringComparator, factory);
         let factoryContract = await deployer.deploy(factory, oracleContract.address, exchangeContract.address);
         // let exchangeContract=await deployer.
-    }else {
+    } else {
 
     }
 

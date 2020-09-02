@@ -1,5 +1,6 @@
 import { expect, assert } from 'chai';
 import { PloutozOracleContract, PloutozOracleInstance } from '../build/types/truffle-types';
+import { BigNumber } from 'bignumber.js';
 // Load compiled artifacts
 const PloutozOracle:PloutozOracleContract = artifacts.require('PloutozOracle.sol');
 
@@ -62,46 +63,46 @@ contract('PloutozOracleContract', accounts => {
     describe('test the prices', async () => {
         it('test all the underlying token prices', async () => {
             console.log(
-                'BAT Price ' + (await oracle.getPrice(batAddress)).toString()
+                'BAT Price ' + new BigNumber((await oracle.getPrice(batAddress)).toString()).toFormat()
             );
             console.log(
-                'Dai Price ' + (await oracle.getPrice(daiAddress)).toString()
+                'Dai Price ' + new BigNumber((await oracle.getPrice(daiAddress)).toString()).toFormat()
             );
             console.log(
-                'Rep Price ' + (await oracle.getPrice(repAddress)).toString()
+                'Rep Price ' + new BigNumber((await oracle.getPrice(repAddress)).toString()).toFormat()
             );
             console.log(
-                'USDC Price ' + (await oracle.getPrice(usdcAddress)).toString()
+                'USDC Price ' + new BigNumber((await oracle.getPrice(usdcAddress)).toString()).toFormat()
             );
             console.log(
-                'wBTC Price ' + (await oracle.getPrice(wbtcAddress)).toString()
+                'wBTC Price ' + new BigNumber((await oracle.getPrice(wbtcAddress)).toString()).toFormat()
             );
             console.log(
-                'ZRX Price ' + (await oracle.getPrice(zrxAddress)).toString()
+                'ZRX Price ' + new BigNumber((await oracle.getPrice(zrxAddress)).toString()).toFormat()
             );
         });
 
         it('test all the cToken prices', async () => {
             console.log(
-                'cBAT Price ' + (await oracle.getPrice(cBATAddress)).toString()
+                'cBAT Price ' + new BigNumber((await oracle.getPrice(cBATAddress)).toString()).toFormat()
             );
             console.log(
-                'cDai Price ' + (await oracle.getPrice(cDaiAddress)).toString()
+                'cDai Price ' + new BigNumber((await oracle.getPrice(cDaiAddress)).toString()).toFormat()
             );
             console.log(
-                'cRep Price ' + (await oracle.getPrice(cREPAddress)).toString()
+                'cRep Price ' + new BigNumber((await oracle.getPrice(cREPAddress)).toString()).toFormat()
             );
             console.log(
-                'cUSDC Price ' + (await oracle.getPrice(cUSDCAddress)).toString()
+                'cUSDC Price ' + new BigNumber((await oracle.getPrice(cUSDCAddress)).toString()).toFormat()
             );
             console.log(
-                'cwBTC Price ' + (await oracle.getPrice(cWBTCAddress)).toString()
+                'cwBTC Price ' + new BigNumber((await oracle.getPrice(cWBTCAddress)).toString()).toFormat()
             );
             console.log(
-                'cZRX Price ' + (await oracle.getPrice(cZRXAddress)).toString()
+                'cZRX Price ' + new BigNumber((await oracle.getPrice(cZRXAddress)).toString()).toFormat()
             );
             console.log(
-                'cETH Price ' + (await oracle.getPrice(cETHAddress)).toString()
+                'cETH Price ' + new BigNumber((await oracle.getPrice(cETHAddress)).toString()).toFormat()
             );
         });
     });

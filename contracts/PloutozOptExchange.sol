@@ -19,17 +19,6 @@ contract PloutozOptExchange is Ownable {
     IUniswapV2Router02 public uniswapRouter02;
     address router02Address;
 
-    // constructor(
-    //     address _uniswapFactory,
-    //     address _uniswapRouter01,
-    //     address _uniswapRouter02
-    // ) public {
-    //     UNISWAP_FACTORY = _uniswapFactory;
-    //     uniswapRouter01 = IUniswapV2Router01(_uniswapRouter01);
-    //     uniswapRouter02 = IUniswapV2Router02(_uniswapRouter02);
-    //     WETH = uniswapRouter02.WETH();
-    // }
-
     constructor(
         address _uniswapFactory,
         address _uniswapRouter01,
@@ -139,31 +128,48 @@ contract PloutozOptExchange is Ownable {
         emit BuyOTokens(msg.sender, oTokenAddress, msg.value, amounts[0]);
     }
 
-    function addLiquidityETH(
-        uint256 amtToCreate,
-        address optContractAddress,
-        address receiver
-    ) public payable returns (uint256 amountETH, uint256 liquidity) {
+    function addLiquidityETH(uint256 amtToCreate, address optContractAddress)
+        public
+        payable
+        returns (uint256 amountETH, uint256 liquidity)
+    {
         IERC20 optToken = IERC20(optContractAddress);
         optToken.approve(router02Address, amtToCreate);
         (, amountETH, liquidity) = uniswapRouter02.addLiquidityETH{
             value: msg.value
-        }(optContractAddress, amtToCreate, 1, 1, receiver, block.timestamp);
+        }(
+            optContractAddress,
+            amtToCreate,
+            1,
+            1,
+            address(this),
+            block.timestamp
+        );
         if (msg.value > amountETH) {
             TransferHelper.safeTransferETH(msg.sender, msg.value - amountETH);
         }
-        emit AddUniswapLiquidity(amtToCreate, msg.value, liquidity, receiver);
+        emit AddUniswapLiquidity(
+            amtToCreate,
+            msg.value,
+            liquidity,
+            address(this)
+        );
     }
 
-    function redeemLiquidity(address optContractAddress, address receiver)
-        public
-    {
-        address pair = UniswapV2Library.pairFor(
+    function redeemLiquidity(
+        address optContractAddress,
+        address receiver,
+        uint256 amt
+    ) public {
+        address pairAddress = UniswapV2Library.pairFor(
             UNISWAP_FACTORY,
             WETH,
             optContractAddress
         );
-        uint256 amt = IERC20(pair).balanceOf(receiver);
+        IERC20 pair = IERC20(pairAddress);
+        uint256 balance = pair.balanceOf(receiver);
+        require(amt <= balance, "insufficient liquidity");
+        pair.approve(router02Address, amt);
         (uint256 amountToken, uint256 amountETH) = uniswapRouter02
             .removeLiquidityETH(
             optContractAddress,
@@ -174,6 +180,19 @@ contract PloutozOptExchange is Ownable {
             block.timestamp
         );
         emit RedeemUniswapLiquidity(amountToken, amountETH, amt, receiver);
+    }
+
+    function getLiquidityBalance(address owner, address optContractAddress)
+        external
+        view
+        returns (uint256 liquidity)
+    {
+        address pair = UniswapV2Library.pairFor(
+            UNISWAP_FACTORY,
+            WETH,
+            optContractAddress
+        );
+        liquidity = IERC20(pair).balanceOf(owner);
     }
 
     // 能卖多少eth

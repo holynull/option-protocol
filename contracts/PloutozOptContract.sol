@@ -35,14 +35,16 @@ interface IPloutozOptExchange {
         payable
         returns (uint256[] memory amounts);
 
-    function addLiquidityETH(
-        uint256 amtToCreate,
-        address optContractAddresss,
-        address receiver
-    ) external payable returns (uint256 amountETH, uint256 liquidity);
+    function addLiquidityETH(uint256 amtToCreate, address optContractAddresss)
+        external
+        payable
+        returns (uint256 amountETH, uint256 liquidity);
 
-    function redeemLiquidity(address optContractAddress, address receiver)
-        external;
+    function redeemLiquidity(
+        address optContractAddress,
+        address payable receiver,
+        uint256 amt
+    ) external;
 
     // 能卖多少eth
     function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
@@ -55,6 +57,11 @@ interface IPloutozOptExchange {
         external
         view
         returns (uint256 amts);
+
+    function getLiquidityBalance(address owner, address optContractAddress)
+        external
+        view
+        returns (uint256 liquidity);
 }
 
 contract PloutozOptContract is Ownable, ERC20 {
@@ -63,7 +70,8 @@ contract PloutozOptContract is Ownable, ERC20 {
     struct Vault {
         uint256 collateral; // wei, 抵押币种的数量
         uint256 tokensIssued; // wei, 发行的期权合约的数量
-        uint256 underlying; // wei, 获得的underlying的数量
+        uint256 underlying; // wei, 获得的underlying的数量,
+        uint256 liquidity; // wei
         bool owned;
     }
 
@@ -211,6 +219,7 @@ contract PloutozOptContract is Ownable, ERC20 {
             uint256,
             uint256,
             uint256,
+            uint256,
             bool
         )
     {
@@ -219,6 +228,7 @@ contract PloutozOptContract is Ownable, ERC20 {
             vault.collateral,
             vault.tokensIssued,
             vault.underlying,
+            vault.liquidity,
             vault.owned
         );
     }
@@ -231,7 +241,7 @@ contract PloutozOptContract is Ownable, ERC20 {
     function openVault() internal notExpired returns (bool) {
         require(!hasVault(msg.sender), "Vault already created");
 
-        vaults[msg.sender] = Vault(0, 0, 0, true);
+        vaults[msg.sender] = Vault(0, 0, 0, 0, true);
         vaultOwners.push(msg.sender);
 
         emit VaultOpened(msg.sender);
@@ -284,59 +294,59 @@ contract PloutozOptContract is Ownable, ERC20 {
     }
 
     // seller提取给付的标的
-    function removeUnderlying() public {
-        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
-        Vault storage vault = vaults[msg.sender];
+    // function removeUnderlying() public {
+    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
+    //     Vault storage vault = vaults[msg.sender];
 
-        require(vault.underlying > 0, "NO_UNDERLYING_BALANCE");
+    //     require(vault.underlying > 0, "NO_UNDERLYING_BALANCE");
 
-        uint256 underlyingToTransfer = vault.underlying;
-        vault.underlying = 0;
+    //     uint256 underlyingToTransfer = vault.underlying;
+    //     vault.underlying = 0;
 
-        transferUnderlying(msg.sender, underlyingToTransfer);
-        emit RemoveUnderlying(underlyingToTransfer, msg.sender);
-    }
+    //     transferUnderlying(msg.sender, underlyingToTransfer);
+    //     emit RemoveUnderlying(underlyingToTransfer, msg.sender);
+    // }
 
     function isETH(IERC20 _ierc20) public pure returns (bool) {
         return _ierc20 == IERC20(0);
     }
 
     // 销毁一定数量的期权
-    function burnOTokens(uint256 amtToBurn) public notExpired {
-        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
+    // function burnOTokens(uint256 amtToBurn) public notExpired {
+    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
-        Vault storage vault = vaults[msg.sender];
+    //     Vault storage vault = vaults[msg.sender];
 
-        vault.tokensIssued = vault.tokensIssued.sub(amtToBurn);
-        _burn(msg.sender, amtToBurn);
+    //     vault.tokensIssued = vault.tokensIssued.sub(amtToBurn);
+    //     _burn(msg.sender, amtToBurn);
 
-        emit BurnOTokens(msg.sender, amtToBurn);
-    }
+    //     emit BurnOTokens(msg.sender, amtToBurn);
+    // }
 
-    function removeCollateral(uint256 amtToRemove) public notExpired {
-        require(amtToRemove > 0, "CANNOT_REMOVE_0_COLLATERAL");
-        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
+    // function removeCollateral(uint256 amtToRemove) public notExpired {
+    //     require(amtToRemove > 0, "CANNOT_REMOVE_0_COLLATERAL");
+    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
-        Vault storage vault = vaults[msg.sender];
-        require(
-            amtToRemove <= getCollateral(msg.sender),
-            "CAN'T_REMOVE_MORE_COLLATERAL_THAN_OWNED"
-        );
+    //     Vault storage vault = vaults[msg.sender];
+    //     require(
+    //         amtToRemove <= getCollateral(msg.sender),
+    //         "CAN'T_REMOVE_MORE_COLLATERAL_THAN_OWNED"
+    //     );
 
-        // check that vault will remain safe after removing collateral
-        uint256 newCollateralBalance = vault.collateral.sub(amtToRemove);
+    //     // check that vault will remain safe after removing collateral
+    //     uint256 newCollateralBalance = vault.collateral.sub(amtToRemove);
 
-        require(
-            isSafe(newCollateralBalance, vault.tokensIssued),
-            "VAULT_IS_UNSAFE"
-        );
+    //     require(
+    //         isSafe(newCollateralBalance, vault.tokensIssued),
+    //         "VAULT_IS_UNSAFE"
+    //     );
 
-        // remove the collateral
-        vault.collateral = newCollateralBalance;
-        transferCollateral(msg.sender, amtToRemove);
+    //     // remove the collateral
+    //     vault.collateral = newCollateralBalance;
+    //     transferCollateral(msg.sender, amtToRemove);
 
-        emit RemoveCollateral(amtToRemove, msg.sender);
-    }
+    //     emit RemoveCollateral(amtToRemove, msg.sender);
+    // }
 
     // seller进行赎回清算
     function redeemVaultBalance() public {
@@ -349,15 +359,17 @@ contract PloutozOptContract is Ownable, ERC20 {
         // To deal with lower precision
         uint256 collateralToTransfer = vault.collateral;
         uint256 underlyingToTransfer = vault.underlying;
+        uint256 liquidity = vault.liquidity;
 
         vault.collateral = 0;
         vault.tokensIssued = 0;
         vault.underlying = 0;
-
+        vault.liquidity = 0;
+        // 赎回uniswap流动性
+        exchange.redeemLiquidity(address(this), msg.sender, liquidity);
         transferCollateral(msg.sender, collateralToTransfer);
         transferUnderlying(msg.sender, underlyingToTransfer);
-        // 赎回uniswap流动性
-        exchange.redeemLiquidity(address(this), msg.sender);
+
         emit RedeemVaultBalance(
             collateralToTransfer,
             underlyingToTransfer,
@@ -472,16 +484,16 @@ contract PloutozOptContract is Ownable, ERC20 {
         );
     }
 
-    function _addCollateral(address payable vaultOwner, uint256 amt)
-        internal
-        notExpired
-        returns (uint256)
-    {
-        Vault storage vault = vaults[vaultOwner];
-        vault.collateral = vault.collateral.add(amt);
+    // function _addCollateral(address payable vaultOwner, uint256 amt)
+    //     internal
+    //     notExpired
+    //     returns (uint256)
+    // {
+    //     Vault storage vault = vaults[vaultOwner];
+    //     vault.collateral = vault.collateral.add(amt);
 
-        return vault.collateral;
-    }
+    //     return vault.collateral;
+    // }
 
     // tokensIssued wei
     function isSafe(
@@ -672,9 +684,13 @@ contract PloutozOptContract is Ownable, ERC20 {
         transfer(exchangeAddress, amtToCreate);
         (uint256 amountETH, uint256 liquidity) = exchange.addLiquidityETH{
             value: liquidityEth
-        }(amtToCreate, address(this), msg.sender);
+        }(amtToCreate, address(this));
+        vault.liquidity = vault.liquidity.add(liquidity);
         if (liquidityEth > amountETH) {
-            TransferHelper.safeTransferETH(msg.sender, liquidityEth - amountETH);
+            TransferHelper.safeTransferETH(
+                msg.sender,
+                liquidityEth - amountETH
+            );
             emit ChargeDust(msg.sender, liquidityEth - amountETH);
         }
     }
