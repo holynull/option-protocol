@@ -293,64 +293,13 @@ contract PloutozOptContract is Ownable, ERC20 {
         );
     }
 
-    // seller提取给付的标的
-    // function removeUnderlying() public {
-    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
-    //     Vault storage vault = vaults[msg.sender];
-
-    //     require(vault.underlying > 0, "NO_UNDERLYING_BALANCE");
-
-    //     uint256 underlyingToTransfer = vault.underlying;
-    //     vault.underlying = 0;
-
-    //     transferUnderlying(msg.sender, underlyingToTransfer);
-    //     emit RemoveUnderlying(underlyingToTransfer, msg.sender);
-    // }
-
     function isETH(IERC20 _ierc20) public pure returns (bool) {
         return _ierc20 == IERC20(0);
     }
 
-    // 销毁一定数量的期权
-    // function burnOTokens(uint256 amtToBurn) public notExpired {
-    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
-
-    //     Vault storage vault = vaults[msg.sender];
-
-    //     vault.tokensIssued = vault.tokensIssued.sub(amtToBurn);
-    //     _burn(msg.sender, amtToBurn);
-
-    //     emit BurnOTokens(msg.sender, amtToBurn);
-    // }
-
-    // function removeCollateral(uint256 amtToRemove) public notExpired {
-    //     require(amtToRemove > 0, "CANNOT_REMOVE_0_COLLATERAL");
-    //     require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
-
-    //     Vault storage vault = vaults[msg.sender];
-    //     require(
-    //         amtToRemove <= getCollateral(msg.sender),
-    //         "CAN'T_REMOVE_MORE_COLLATERAL_THAN_OWNED"
-    //     );
-
-    //     // check that vault will remain safe after removing collateral
-    //     uint256 newCollateralBalance = vault.collateral.sub(amtToRemove);
-
-    //     require(
-    //         isSafe(newCollateralBalance, vault.tokensIssued),
-    //         "VAULT_IS_UNSAFE"
-    //     );
-
-    //     // remove the collateral
-    //     vault.collateral = newCollateralBalance;
-    //     transferCollateral(msg.sender, amtToRemove);
-
-    //     emit RemoveCollateral(amtToRemove, msg.sender);
-    // }
-
     // seller进行赎回清算
     function redeemVaultBalance() public {
-        require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
+        // require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         // pay out owner their share
@@ -483,17 +432,6 @@ contract PloutozOptContract is Ownable, ERC20 {
             vaultToExerciseFrom
         );
     }
-
-    // function _addCollateral(address payable vaultOwner, uint256 amt)
-    //     internal
-    //     notExpired
-    //     returns (uint256)
-    // {
-    //     Vault storage vault = vaults[vaultOwner];
-    //     vault.collateral = vault.collateral.add(amt);
-
-    //     return vault.collateral;
-    // }
 
     // tokensIssued wei
     function isSafe(

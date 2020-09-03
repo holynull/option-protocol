@@ -4,8 +4,9 @@ import "./PloutozOptContract.sol";
 import "./lib/StringComparator.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-contract PloutozOptFactory is Ownable {
+contract PloutozOptFactory is Ownable, ERC20 {
     using StringComparator for string;
 
     // keys saved in front-end -- look at the docs if needed
@@ -25,8 +26,12 @@ contract PloutozOptFactory is Ownable {
 
     constructor(address _oracleAddress, address _exchangeAddress)
         public
-        Ownable()
+        ERC20(
+            "Ploutoz Option Contract Factory",
+            "Ploutoz Option Contract Factory"
+        )
     {
+        transferOwnership(msg.sender);
         oracleAddress = _oracleAddress;
         exchangeAddress = _exchangeAddress;
     }

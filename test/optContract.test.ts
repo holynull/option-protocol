@@ -63,7 +63,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
     let liquidityEthWei: BigNumber;
     let tokensWei: BigNumber;
 
-    before('获取要测试的期权合约，并抵押发布合约', async () => {
+    before('测试前获取要测试的期权合约，并抵押发布合约', async () => {
         // await StringComparatorContract.new();
         oracleContract = await PloutozOracleContract.deployed();
         factory = await PloutozOptFactoryContract.deployed();
@@ -153,7 +153,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             let totalEthAmtWei = collateralAmtWei.plus(liquidityEthWei);
             console.log('totalEthAmtWei: ' + totalEthAmtWei.toFormat());
 
-            let res = await optContract.createCollateralOption(collateralAmtWei, { value: totalEthAmtWei.toFixed() });
+            let res = await optContract.createCollateralOption(collateralAmtWei.toFixed(0, BigNumber.ROUND_DOWN), { value: totalEthAmtWei.toFixed(0, BigNumber.ROUND_DOWN) });
 
             // let res = await web3.eth.sendTransaction({ from: accounts[0], to: optContract.address, value: web3.utils.toWei('0.005', 'ether'), gas: '1000000', gasPrice: web3.utils.toWei('70', 'gwei') });
             // console.log(res);
@@ -195,9 +195,26 @@ contract('期权合约 Call ETH/USDC', async accounts => {
         });
     });
 
+    describe('seller赎回后，检查数据', async () => {
+        let balanceBeforRedeem;
+        let balanceAfterRedeem;
+        it('赎回流动性', async () => {
+            balanceBeforRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
+            console.log('balanceBeforRedeem: ' + balanceBeforRedeem.toFormat());
+            let res = await optContract.redeemVaultBalance();
+        });
 
-    describe('抵押发布期权合约以后，检查数据', async () => {
+        it('赎回流动性后的余额', async () => {
+            balanceAfterRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
+            console.log('balanceBeforRedeem: ' + balanceAfterRedeem.toFormat());
+        });
+        it('赎回后，exchange上的liquidity余额为0', async () => {
+            let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
+            expect(liquidity.toString()).equal('0');
+        });
 
+        it('赎回后，underlying数值', async () => {
+            // todo：
+        });
     });
-
 });

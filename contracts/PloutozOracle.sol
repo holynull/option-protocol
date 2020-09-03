@@ -23,7 +23,7 @@ interface CompoundOracleInterface {
     // }
 }
 
-contract PloutozOracle is Ownable {
+contract PloutozOracle is Ownable, ERC20 {
     using SafeMath for uint256;
 
     mapping(address => bool) isCToken;
@@ -33,7 +33,11 @@ contract PloutozOracle is Ownable {
     // The Oracle used for the contract
     CompoundOracleInterface public PriceOracle;
 
-    constructor(address _oracleAddress) public Ownable() {
+    constructor(address _oracleAddress)
+        public
+        ERC20("Ploutoz Oracle", "Ploutoz Oracle")
+    {
+        transferOwnership(msg.sender);
         PriceOracle = CompoundOracleInterface(_oracleAddress);
         // Mainnet
         // address cBAT = 0x6C8c6b02E7b2BE14d4fA6022Dfd6d75921D90E4E;
@@ -128,7 +132,6 @@ contract PloutozOracle is Ownable {
                     getPriceUnderlying(underlyingAddress).mul(exchangeRate).div(
                         10**exponent
                     );
-
             } else if (assetToCTokens[asset] != address(0)) {
                 //2. Underlying Tokens that Compound lists
                 return getPriceUnderlying(asset);

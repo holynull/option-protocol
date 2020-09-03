@@ -6,9 +6,11 @@ import "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
 import "./lib/UniswapV2Library.sol";
 import "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "./lib/IWETH.sol";
 
-contract PloutozOptExchange is Ownable {
+contract PloutozOptExchange is Ownable, ERC20 {
     uint256 constant LARGE_BLOCK_SIZE = 1651753129000;
     uint256 constant LARGE_APPROVAL_NUMBER = 10**30;
 
@@ -24,7 +26,8 @@ contract PloutozOptExchange is Ownable {
         address _uniswapRouter01,
         address _uniswapRouter02,
         address _wethAddress
-    ) public Ownable() {
+    ) public ERC20("Ploutoz Option Exchange", "Ploutoz Option Exchange") {
+        transferOwnership(msg.sender);
         UNISWAP_FACTORY = _uniswapFactory;
         router01Address = _uniswapRouter01;
         router02Address = _uniswapRouter02;
@@ -167,7 +170,7 @@ contract PloutozOptExchange is Ownable {
             optContractAddress
         );
         IERC20 pair = IERC20(pairAddress);
-        uint256 balance = pair.balanceOf(receiver);
+        uint256 balance = pair.balanceOf(address(this));
         require(amt <= balance, "insufficient liquidity");
         pair.approve(router02Address, amt);
         (uint256 amountToken, uint256 amountETH) = uniswapRouter02
