@@ -163,7 +163,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
         address optContractAddress,
         address receiver,
         uint256 amt
-    ) public {
+    ) public returns (uint256 amountToken, uint256 amountETH) {
         address pairAddress = UniswapV2Library.pairFor(
             UNISWAP_FACTORY,
             WETH,
@@ -173,8 +173,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
         uint256 balance = pair.balanceOf(address(this));
         require(amt <= balance, "insufficient liquidity");
         pair.approve(router02Address, amt);
-        (uint256 amountToken, uint256 amountETH) = uniswapRouter02
-            .removeLiquidityETH(
+        (amountToken, amountETH) = uniswapRouter02.removeLiquidityETH(
             optContractAddress,
             amt,
             1,

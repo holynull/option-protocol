@@ -44,7 +44,7 @@ interface IPloutozOptExchange {
         address optContractAddress,
         address payable receiver,
         uint256 amt
-    ) external;
+    ) external returns (uint256 amountToken, uint256 amountETH);
 
     // 能卖多少eth
     function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
@@ -299,7 +299,7 @@ contract PloutozOptContract is Ownable, ERC20 {
 
     // seller进行赎回清算
     function redeemVaultBalance() public {
-        // require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
+        require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
         // pay out owner their share
@@ -315,10 +315,14 @@ contract PloutozOptContract is Ownable, ERC20 {
         vault.underlying = 0;
         vault.liquidity = 0;
         // 赎回uniswap流动性
-        exchange.redeemLiquidity(address(this), msg.sender, liquidity);
+        (uint256 amountToken, ) = exchange.redeemLiquidity(
+            address(this),
+            msg.sender,
+            liquidity
+        );
         transferCollateral(msg.sender, collateralToTransfer);
         transferUnderlying(msg.sender, underlyingToTransfer);
-
+        _burn(msg.sender, amountToken);
         emit RedeemVaultBalance(
             collateralToTransfer,
             underlyingToTransfer,
