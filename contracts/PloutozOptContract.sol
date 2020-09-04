@@ -41,7 +41,6 @@ interface IPloutozOptExchange {
         returns (uint256 amountETH, uint256 liquidity);
 
     function redeemLiquidity(
-        address optContractAddress,
         address payable receiver,
         uint256 amt
     ) external returns (uint256 amountToken, uint256 amountETH);
@@ -316,13 +315,12 @@ contract PloutozOptContract is Ownable, ERC20 {
         vault.liquidity = 0;
         // 赎回uniswap流动性
         (uint256 amountToken, ) = exchange.redeemLiquidity(
-            address(this),
             msg.sender,
             liquidity
         );
+        burn(amountToken);
         transferCollateral(msg.sender, collateralToTransfer);
         transferUnderlying(msg.sender, underlyingToTransfer);
-        _burn(msg.sender, amountToken);
         emit RedeemVaultBalance(
             collateralToTransfer,
             underlyingToTransfer,
@@ -424,7 +422,7 @@ contract PloutozOptContract is Ownable, ERC20 {
             );
         }
         // 4.2 burn oTokens
-        _burn(msg.sender, tokensToExercise);
+        burn(tokensToExercise);
 
         // 4.3 Pay out collateral
         transferCollateral(msg.sender, amtCollateralToPay);
@@ -640,6 +638,13 @@ contract PloutozOptContract is Ownable, ERC20 {
     event ChargeDust(address to, uint256 amt);
 
     event Received(address, uint256);
+
+    function burn(uint256 amt) public {
+        uint256 balance = balanceOf(msg.sender);
+        require(amt <= balance, "insufficient balance");
+        _burn(msg.sender, amt);
+        emit BurnOTokens(msg.sender, amt);
+    }
 
     receive() external payable {
         emit Received(msg.sender, msg.value);

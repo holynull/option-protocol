@@ -90,7 +90,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
         oToken.approve(address(uniswapRouter02), oTokensToSell);
         // amountOutMin must be retrieved from an oracle of some kind
         address[] memory path = new address[](2);
-        path[0] = address(oToken);
+        path[0] = oTokenAddress;
         path[1] = WETH;
         amounts = uniswapRouter02.swapExactTokensForETH(
             oTokensToSell,
@@ -99,7 +99,6 @@ contract PloutozOptExchange is Ownable, ERC20 {
             msg.sender,
             block.timestamp
         );
-        TransferHelper.safeTransferETH(msg.sender, amounts[amounts.length - 1]);
         emit SellOTokens(
             msg.sender,
             oTokenAddress,
@@ -118,7 +117,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
         // amountOutMin must be retrieved from an oracle of some kind
         address[] memory path = new address[](2);
         path[0] = WETH;
-        path[1] = address(oToken);
+        path[1] = oTokenAddress;
         amounts = uniswapRouter02.swapETHForExactTokens{value: msg.value}(
             oTokensToBuy,
             path,
@@ -159,22 +158,22 @@ contract PloutozOptExchange is Ownable, ERC20 {
         );
     }
 
-    function redeemLiquidity(
-        address optContractAddress,
-        address receiver,
-        uint256 amt
-    ) public returns (uint256 amountToken, uint256 amountETH) {
+    // 非期权合约调用，逻辑将不成立
+    function redeemLiquidity(address receiver, uint256 amt)
+        public
+        returns (uint256 amountToken, uint256 amountETH)
+    {
         address pairAddress = UniswapV2Library.pairFor(
             UNISWAP_FACTORY,
             WETH,
-            optContractAddress
+            msg.sender
         );
         IERC20 pair = IERC20(pairAddress);
         uint256 balance = pair.balanceOf(address(this));
         require(amt <= balance, "insufficient liquidity");
         pair.approve(router02Address, amt);
         (amountToken, amountETH) = uniswapRouter02.removeLiquidityETH(
-            optContractAddress,
+            msg.sender,
             amt,
             1,
             1,
@@ -199,32 +198,30 @@ contract PloutozOptExchange is Ownable, ERC20 {
 
     // 能卖多少eth
     function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
-        public
+        external
         view
         returns (uint256 amt)
     {
         address[] memory path = new address[](2);
         path[0] = oTokenAddress;
         path[1] = WETH;
-        uint256[] memory amounts = UniswapV2Library.getAmountsOut(
-            address(UNISWAP_FACTORY),
+        uint256[] memory amounts = uniswapRouter02.getAmountsOut(
             oTokensToSell,
             path
         );
-        amt = amounts[amounts.length - 1];
+        amt = amounts[1];
     }
 
-    // 能买多少出来
+    // 需要付多少eth
     function premiumToPay(address oTokenAddress, uint256 oTokensToBuy)
-        public
+        external
         view
         returns (uint256 amts)
     {
         address[] memory path = new address[](2);
-        path[1] = oTokenAddress;
         path[0] = WETH;
-        uint256[] memory amounts = UniswapV2Library.getAmountsIn(
-            address(UNISWAP_FACTORY),
+        path[1] = oTokenAddress;
+        uint256[] memory amounts = uniswapRouter02.getAmountsIn(
             oTokensToBuy,
             path
         );

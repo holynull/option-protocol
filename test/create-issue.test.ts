@@ -98,11 +98,10 @@ contract('期权合约 Call ETH/USDC', async accounts => {
         }
         let creatRes = await factory.createOptionsContract(
             'oEthc call 400.00 2020/9/10', // name 
-            'oEthc call 400.00 2020/9/10', // symbol
             'USDC', // underlying
             'ETH', // strike
             'ETH', // collateral
-            '2500', // strikePrice
+            '250', // strikePrice
             6, // strikePriceDecimals
             '1599719343', // expiry
             '1598344440' // windowsize
@@ -140,7 +139,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             exchangeAddress = await optContract.exchange();
             console.log('exchange is at: ' + exchangeAddress);
 
-            collateralAmt = 0.001; // 打算抵押eth的数量
+            collateralAmt = 0.01; // 打算抵押eth的数量
             collateralAmtWei = new BigNumber(web3.utils.toWei(String(collateralAmt), 'ether'));
             tokensWei = collateralAmtWei.multipliedBy(new BigNumber(10).exponentiatedBy(strikePriceDecimals)).div(strikePrice);
             disirePrice = 0.1; // 期望价格 usd/张期权合约, $1.30
@@ -195,26 +194,49 @@ contract('期权合约 Call ETH/USDC', async accounts => {
         });
     });
 
-    describe('seller赎回后，检查数据', async () => {
-        let balanceBeforRedeem;
-        let balanceAfterRedeem;
-        it('赎回流动性', async () => {
-            balanceBeforRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
-            console.log('balanceBeforRedeem: ' + balanceBeforRedeem.toFormat());
-            let res = await optContract.redeemVaultBalance();
-        });
+    describe('buyer购买期权', async () => {
+        let buyAmtWei: string;
 
-        it('赎回流动性后的余额', async () => {
-            balanceAfterRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
-            console.log('balanceBeforRedeem: ' + balanceAfterRedeem.toFormat());
+        it('购买5个期权合约', async () => {
+            buyAmtWei = web3.utils.toWei('5', 'ether');
+            let paymentEthWei = await exchange.premiumToPay(optContractAddress, buyAmtWei);
+            paymentEthWei = new BigNumber(paymentEthWei.toString());
+            console.log('Payment eth: ' + paymentEthWei.toFormat());
+            let usdcToEthPriceWei = await oracleContract.getPrice(underlying);
+            usdcToEthPriceWei = new BigNumber(usdcToEthPriceWei.toString());
+            let buyPriceUsd = paymentEthWei.div(new BigNumber(buyAmtWei)).div(usdcToEthPriceWei).multipliedBy(new BigNumber(10).exponentiatedBy(18));
+            console.log('Buy price: $' + buyPriceUsd.toFixed(4, BigNumber.ROUND_DOWN));
+            exchange.buyOTokens(optContractAddress, buyAmtWei, { from: accounts[1], value: paymentEthWei.toFixed(0, BigNumber.ROUND_DOWN) });
         });
-        it('赎回后，exchange上的liquidity余额为0', async () => {
-            let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
-            expect(liquidity.toString()).equal('0');
-        });
-
-        it('赎回后，underlying数值', async () => {
-            // todo：
+        it('检查buyer的期权余额', async () => {
+            let optBalanceWei = await optContract.balanceOf(accounts[1]);
+            console.log('Buyer opt balance: ' + new BigNumber(optBalanceWei.toString()).toFormat());
+            expect(new BigNumber(buyAmtWei).toFormat()).equal(new BigNumber(optBalanceWei.toString()).toFormat());
         });
     });
+
+    
+    // describe('seller赎回后，检查数据', async () => {
+    //     let balanceBeforRedeem;
+    //     let balanceAfterRedeem;
+
+    //     it('赎回流动性', async () => {
+    //         balanceBeforRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
+    //         console.log('balanceBeforRedeem: ' + balanceBeforRedeem.toFormat());
+    //         let res = await optContract.redeemVaultBalance();
+    //     });
+
+    //     it('赎回流动性后的余额', async () => {
+    //         balanceAfterRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
+    //         console.log('balanceBeforRedeem: ' + balanceAfterRedeem.toFormat());
+    //     });
+    //     it('赎回后，exchange上的liquidity余额为0', async () => {
+    //         let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
+    //         expect(liquidity.toString()).equal('0');
+    //     });
+
+    //     it('赎回后，underlying数值', async () => {
+    //         // todo：
+    //     });
+    // });
 });

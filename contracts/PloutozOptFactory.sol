@@ -38,7 +38,6 @@ contract PloutozOptFactory is Ownable, ERC20 {
 
     function createOptionsContract(
         string memory _name,
-        string memory _symbol,
         string memory _underlyingType,
         string memory _strikeAsset,
         string memory _collateralType,
@@ -61,7 +60,7 @@ contract PloutozOptFactory is Ownable, ERC20 {
 
         PloutozOptContract optionsContract = new PloutozOptContract(
             _name,
-            _symbol,
+            "OPT",
             tokensAddress[_underlyingType],
             tokensAddress[_strikeAsset],
             tokensAddress[_collateralType],

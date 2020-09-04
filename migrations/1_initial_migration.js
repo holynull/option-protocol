@@ -35,7 +35,7 @@ module.exports = async function (deployer) {
         deployer.link(stringComparator, factory);
         let factoryContract = await deployer.deploy(factory, oracleContract.address, exchangeContract.address);
         // let exchangeContract=await deployer.
-    } else if (deployer.network_id == 42) {
+    } else if (deployer.network_id == 42) { // kovan
         let compoundOracleAddress = "0x6998ed7daf969ea0950e01071aceeee54cccbab5";
         let stringComparatorLibrary = await deployer.deploy(stringComparator);
         let oracleContract = await deployer.deploy(ploutozOracle, compoundOracleAddress);
