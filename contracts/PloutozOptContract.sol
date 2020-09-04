@@ -40,10 +40,9 @@ interface IPloutozOptExchange {
         payable
         returns (uint256 amountETH, uint256 liquidity);
 
-    function redeemLiquidity(
-        address payable receiver,
-        uint256 amt
-    ) external returns (uint256 amountToken, uint256 amountETH);
+    function redeemLiquidity(address payable receiver, uint256 amt)
+        external
+        returns (uint256 amountToken, uint256 amountETH);
 
     // 能卖多少eth
     function premiumReceived(address oTokenAddress, uint256 oTokensToSell)
@@ -188,6 +187,12 @@ contract PloutozOptContract is Ownable, ERC20 {
         address payable vaultOwner
     );
 
+    event RedeemLiquidity(
+        uint256 liquidity,
+        uint256 amountToken,
+        address owner
+    );
+
     /**
      * @dev Throws if called Options contract is expired.
      */
@@ -297,7 +302,7 @@ contract PloutozOptContract is Ownable, ERC20 {
     }
 
     // seller进行赎回清算
-    function redeemVaultBalance() public {
+    function liquidateVaultBalance() public {
         require(hasExpired(), "CAN'T_COLLECT_COLLATERAL_UNTIL_EXPIRY");
         require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
 
@@ -308,16 +313,16 @@ contract PloutozOptContract is Ownable, ERC20 {
         uint256 collateralToTransfer = vault.collateral;
         uint256 underlyingToTransfer = vault.underlying;
         uint256 liquidity = vault.liquidity;
-
-        vault.collateral = 0;
-        vault.tokensIssued = 0;
-        vault.underlying = 0;
-        vault.liquidity = 0;
         // 赎回uniswap流动性
         (uint256 amountToken, ) = exchange.redeemLiquidity(
             msg.sender,
             liquidity
         );
+        vault.collateral = 0;
+        vault.tokensIssued = 0;
+        vault.underlying = 0;
+        vault.liquidity = 0;
+
         burn(amountToken);
         transferCollateral(msg.sender, collateralToTransfer);
         transferUnderlying(msg.sender, underlyingToTransfer);
@@ -326,6 +331,32 @@ contract PloutozOptContract is Ownable, ERC20 {
             underlyingToTransfer,
             msg.sender
         );
+    }
+
+    function redeemLiquidity() public {
+        require(hasVault(msg.sender), "VAULT_DOES_NOT_EXIST");
+
+        // pay out owner their share
+        Vault storage vault = vaults[msg.sender];
+
+        // To deal with lower precision
+        uint256 liquidity = vault.liquidity;
+        vault.liquidity = 0;
+        // 赎回uniswap流动性
+        (uint256 amountToken, ) = exchange.redeemLiquidity(
+            msg.sender,
+            liquidity
+        );
+        vault.tokensIssued = vault.tokensIssued.sub(amountToken);
+
+        burn(amountToken);
+        uint256 payCollateralAmt = calculateCollateralToPay(
+            amountToken,
+            10**18
+        );
+        vault.collateral = vault.collateral.sub(payCollateralAmt);
+        transferCollateral(msg.sender, payCollateralAmt);
+        emit RedeemLiquidity(liquidity, amountToken, msg.sender);
     }
 
     function isUnsafe(address payable vaultOwner) public view returns (bool) {
@@ -445,8 +476,8 @@ contract PloutozOptContract is Ownable, ERC20 {
         uint256 strikeToEthPrice = 1;
 
         if (collateral != strike) {
-            // collateralToEthPrice = getPrice(address(collateral));
-            // strikeToEthPrice = getPrice(address(strike));
+            collateralToEthPrice = getPrice(address(collateral));
+            strikeToEthPrice = getPrice(address(strike));
         }
 
         // check `oTokensIssued * minCollateralizationRatio * strikePrice <= collAmt * collateralToStrikePrice` 流通期权合约的相对抵押物的价值，不能小于vault中抵押物的 1/16
@@ -521,9 +552,7 @@ contract PloutozOptContract is Ownable, ERC20 {
             .mul(proportion)
             .mul(strikeToEthPrice)
             .div(collateralToEthPrice)
-            .mul(10**(uint256(18) - strikePriceDecimals)); // wei
-        if (!isETH(collateral))
-            result = result.mul(10**(collateral.decimals() - uint256(18))); // wei 转成币种数量
+            .div(10**(strikePriceDecimals + uint256(18))); // wei
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
@@ -544,7 +573,7 @@ contract PloutozOptContract is Ownable, ERC20 {
         }
     }
 
-    function getPrice(address asset) internal view returns (uint256) {
+    function getPrice(address asset) public view returns (uint256) {
         if (asset == address(0)) {
             return (10**18);
         } else {
@@ -553,7 +582,7 @@ contract PloutozOptContract is Ownable, ERC20 {
     }
 
     // seller抵押发布期权；实际数量amtCollateral*10**collateralExp
-    function createCollateralOption(
+    function collateralIssueOption(
         uint256 amtCollateral // wei
     ) external payable returns (uint256 amtToCreate) {
         if (!hasVault(msg.sender)) {

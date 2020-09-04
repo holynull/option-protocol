@@ -18,21 +18,9 @@ const PloutozOptFactoryContract: PloutozOptFactoryContract = artifacts.require('
 const PloutozOracleContract: PloutozOracleContract = artifacts.require('PloutozOracle.sol');
 const PloutozOptExchangeContract: PloutozOptExchangeContract = artifacts.require('PloutozOptExchange.sol');
 const WETH9Contract: WETH9Contract = artifacts.require('WETH9.sol');
-const truffleAssert = require('truffle-assertions');
-const Web3Utils = require('web3-utils');
 import { BigNumber } from 'bignumber.js';
-import { getUnixTime, addMonths, addSeconds, fromUnixTime } from 'date-fns';
 
 contract('期权合约 Call ETH/USDC', async accounts => {
-    const creatorAddress = accounts[0];
-    const firstOwnerAddress = accounts[1];
-
-    // Rinkeby Addresses
-    const compOracleAddress = '0x332b6e69f21acdba5fb3e8dac56ff81878527e06';
-
-    // Mainnet Addresses
-
-    let oracleContract: PloutozOracleInstance;
 
     let factory: PloutozOptFactoryInstance;
 
@@ -65,7 +53,6 @@ contract('期权合约 Call ETH/USDC', async accounts => {
 
     before('测试前获取要测试的期权合约，并抵押发布合约', async () => {
         // await StringComparatorContract.new();
-        oracleContract = await PloutozOracleContract.deployed();
         factory = await PloutozOptFactoryContract.deployed();
         exchange = await PloutozOptExchangeContract.deployed();
 
@@ -143,7 +130,7 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             collateralAmtWei = new BigNumber(web3.utils.toWei(String(collateralAmt), 'ether'));
             tokensWei = collateralAmtWei.multipliedBy(new BigNumber(10).exponentiatedBy(strikePriceDecimals)).div(strikePrice);
             disirePrice = 0.1; // 期望价格 usd/张期权合约, $1.30
-            let underlyingEthPriceWei: BigNumber = new BigNumber(await oracleContract.getPrice(underlying));
+            let underlyingEthPriceWei: BigNumber = new BigNumber(await optContract.getPrice(underlying));
             console.log('underlyingEthPriceWei: ' + underlyingEthPriceWei.toFormat());
             liquidityEthWei = tokensWei.multipliedBy(new BigNumber(10).exponentiatedBy(-18)).multipliedBy(disirePrice).multipliedBy(underlyingEthPriceWei);
 
@@ -151,92 +138,15 @@ contract('期权合约 Call ETH/USDC', async accounts => {
             console.log('liquidityEthWei: ' + liquidityEthWei.toFormat());
             let totalEthAmtWei = collateralAmtWei.plus(liquidityEthWei);
             console.log('totalEthAmtWei: ' + totalEthAmtWei.toFormat());
-
-            let res = await optContract.createCollateralOption(collateralAmtWei.toFixed(0, BigNumber.ROUND_DOWN), { value: totalEthAmtWei.toFixed(0, BigNumber.ROUND_DOWN) });
-
-            // let res = await web3.eth.sendTransaction({ from: accounts[0], to: optContract.address, value: web3.utils.toWei('0.005', 'ether'), gas: '1000000', gasPrice: web3.utils.toWei('70', 'gwei') });
-            // console.log(res);
         }
     });
 
-    describe('抵押发布期权合约以后，检查数据', async () => {
+    describe('期权合约创建完成', async () => {
 
-        it('期权合约的totalSupply应该等于发布的期权数量', async () => {
-            // let tokens = await optContract.balanceOf(exchange.address); // 生成期权合约的数量，这些期权合约将被转给exchange
-            let totalSupply = await optContract.totalSupply();
-            // expect(tokens.toString()).equal(tokensWei.toFixed(0, BigNumber.ROUND_DOWN));
-            expect(totalSupply.toString()).equal(tokensWei.toFixed(0, BigNumber.ROUND_DOWN));
+        it('期权合约的地址不为空', async () => {
+            expect(optContractAddress).not.equal('');
         });
-        it('期权合约上eth的数量应该等于0', async () => {
-            let optContractEthBalance = await web3.eth.getBalance(optContractAddress); // 期权合约上的eth的数量，应该为0
-            expect(optContractEthBalance).equal('0');
-        });
-        it('期权合约上weth的数量应该等于抵押的eth的数量', async () => {
-            let optContractWETHBalance = await wethContract.balanceOf(optContractAddress); // 期权合约上抵押的weth数量是否正确
-            expect(optContractWETHBalance.toString()).equal(collateralAmtWei.toFixed());
-        });
-        it('托管的liquidity应该等于opt合约上的liquidity余额', async () => {
-            // 流动性在exchange上托管
-            let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
-            console.log('liquidity: ' + new BigNumber(liquidity).toFormat());
-            let vault: any = await optContract.getVault(accounts[0]);
-            let vLiquidity = new BigNumber(vault[3].toString());
-            expect(vLiquidity.comparedTo(liquidity) === 0).equal(true);
-        });
-        it('保险库抵押的数量等于抵押数量', async () => {
-            let arr = await optContract.getVault(accounts[0]);
-            let vCollateralWei = arr[0].toString();
-            let vTokenIssueWei = arr[1].toString();
-            let vUnderlyingWei = arr[2].toString();
-            expect(vCollateralWei).equal(collateralAmtWei.toFixed());
-            expect(vTokenIssueWei).equal(tokensWei.toFixed());
-            expect(vUnderlyingWei).equal('0');
-        });
+
     });
 
-    describe('buyer购买期权', async () => {
-        let buyAmtWei: string;
-
-        it('购买5个期权合约', async () => {
-            buyAmtWei = web3.utils.toWei('5', 'ether');
-            let paymentEthWei = await exchange.premiumToPay(optContractAddress, buyAmtWei);
-            paymentEthWei = new BigNumber(paymentEthWei.toString());
-            console.log('Payment eth: ' + paymentEthWei.toFormat());
-            let usdcToEthPriceWei = await oracleContract.getPrice(underlying);
-            usdcToEthPriceWei = new BigNumber(usdcToEthPriceWei.toString());
-            let buyPriceUsd = paymentEthWei.div(new BigNumber(buyAmtWei)).div(usdcToEthPriceWei).multipliedBy(new BigNumber(10).exponentiatedBy(18));
-            console.log('Buy price: $' + buyPriceUsd.toFixed(4, BigNumber.ROUND_DOWN));
-            exchange.buyOTokens(optContractAddress, buyAmtWei, { from: accounts[1], value: paymentEthWei.toFixed(0, BigNumber.ROUND_DOWN) });
-        });
-        it('检查buyer的期权余额', async () => {
-            let optBalanceWei = await optContract.balanceOf(accounts[1]);
-            console.log('Buyer opt balance: ' + new BigNumber(optBalanceWei.toString()).toFormat());
-            expect(new BigNumber(buyAmtWei).toFormat()).equal(new BigNumber(optBalanceWei.toString()).toFormat());
-        });
-    });
-
-    
-    // describe('seller赎回后，检查数据', async () => {
-    //     let balanceBeforRedeem;
-    //     let balanceAfterRedeem;
-
-    //     it('赎回流动性', async () => {
-    //         balanceBeforRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
-    //         console.log('balanceBeforRedeem: ' + balanceBeforRedeem.toFormat());
-    //         let res = await optContract.redeemVaultBalance();
-    //     });
-
-    //     it('赎回流动性后的余额', async () => {
-    //         balanceAfterRedeem = new BigNumber(await web3.eth.getBalance(accounts[0]));
-    //         console.log('balanceBeforRedeem: ' + balanceAfterRedeem.toFormat());
-    //     });
-    //     it('赎回后，exchange上的liquidity余额为0', async () => {
-    //         let liquidity = await exchange.getLiquidityBalance(exchangeAddress, optContractAddress);
-    //         expect(liquidity.toString()).equal('0');
-    //     });
-
-    //     it('赎回后，underlying数值', async () => {
-    //         // todo：
-    //     });
-    // });
 });

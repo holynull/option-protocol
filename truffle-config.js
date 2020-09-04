@@ -69,6 +69,24 @@ module.exports = {
             skipDryRun: true,
             gasPrice: 7000000000
         },
+        kovan_skipMigrations: {
+            provider: () => new HDWalletProvider(mnemonic, "https://kovan.infura.io/v3/" + projectId),
+            network_id: 42,
+            gas: 10000000,
+            confirmations: 2,
+            timeoutBlocks: 2000,
+            skipDryRun: true,
+            gasPrice: 7000000000
+        },
+        kovan_oracle: {
+            provider: () => new HDWalletProvider(mnemonic, "https://kovan.infura.io/v3/" + projectId),
+            network_id: 42,
+            gas: 10000000,
+            confirmations: 2,
+            timeoutBlocks: 2000,
+            skipDryRun: true,
+            gasPrice: 7000000000
+        },
         mainnet: {
             provider: () => new HDWalletProvider(mnemonic, "https://mainnet.infura.io/v3/" + projectId),
             network_id: 1,       // Mainnet id

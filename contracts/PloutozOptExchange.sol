@@ -87,7 +87,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
             address(this),
             oTokensToSell
         );
-        oToken.approve(address(uniswapRouter02), oTokensToSell);
+        oToken.approve(router02Address, oTokensToSell);
         // amountOutMin must be retrieved from an oracle of some kind
         address[] memory path = new address[](2);
         path[0] = oTokenAddress;
@@ -166,14 +166,15 @@ contract PloutozOptExchange is Ownable, ERC20 {
         address pairAddress = UniswapV2Library.pairFor(
             UNISWAP_FACTORY,
             WETH,
-            msg.sender
+            address(msg.sender)
         );
+        require(address(0) != pairAddress, "pair no exists");
         IERC20 pair = IERC20(pairAddress);
         uint256 balance = pair.balanceOf(address(this));
         require(amt <= balance, "insufficient liquidity");
         pair.approve(router02Address, amt);
         (amountToken, amountETH) = uniswapRouter02.removeLiquidityETH(
-            msg.sender,
+            address(msg.sender),
             amt,
             1,
             1,

@@ -13,6 +13,12 @@ module.exports = async function (deployer) {
     if (deployer.network.indexOf('skipMigrations') > -1) { // skip migration
         return;
     }
+    if (deployer.network.indexOf('kovan_oracle') > -1) { // skip migration
+        let compoundOracleAddress = "0x6998ed7daf969ea0950e01071aceeee54cccbab5";
+        let stringComparatorLibrary = await deployer.deploy(stringComparator);
+        let oracleContract = await deployer.deploy(ploutozOracle, compoundOracleAddress);
+        return;
+    }
     if (deployer.network_id == 4) { // Rinkeby
         let compoundOracleAddress = "0x332b6e69f21acdba5fb3e8dac56ff81878527e06";
         let stringComparatorLibrary = await deployer.deploy(stringComparator);
