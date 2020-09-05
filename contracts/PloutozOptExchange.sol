@@ -142,7 +142,7 @@ contract PloutozOptExchange is Ownable, ERC20 {
         }(
             optContractAddress,
             amtToCreate,
-            1,
+            amtToCreate,
             1,
             address(this),
             block.timestamp
