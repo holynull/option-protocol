@@ -11,6 +11,7 @@
         "k:test:sell": "truffle test test/sell.test.ts --network kovan_skipMigrations",
         "k:test:redeem": "truffle test test/redeem.test.ts --network kovan_skipMigrations",
         "k:test:liquidate": "truffle test test/liquidate.test.ts --network kovan_skipMigrations",
+        "k:test:exercise": "truffle test test/exercise.test.ts --network kovan_skipMigrations",
         "t:compile": "truffle compile && typechain --target=truffle --outDir build/types/truffle-types \"build/contracts/*.json\"",
         "t:migrate": "truffle migrate",
         "g:start": "ganache-cli --deterministic",
