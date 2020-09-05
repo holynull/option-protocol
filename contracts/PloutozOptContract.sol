@@ -553,6 +553,9 @@ contract PloutozOptContract is Ownable, ERC20 {
             .mul(strikeToEthPrice)
             .div(collateralToEthPrice)
             .div(10**(strikePriceDecimals + uint256(18))); // wei
+        if (!isETH(collateral)) {
+            result = result.mul(10**(collateral.decimals() - uint256(10)));
+        }
     }
 
     function transferCollateral(address payable _addr, uint256 _amt) internal {
